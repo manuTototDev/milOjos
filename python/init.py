@@ -5,7 +5,8 @@ import threading
 import numpy as np
 import os
 
-if not os.path.exists('capturas'): os.makedirs('capturas')
+if not os.path.exists('capturas/completas'): os.makedirs('capturas/completas')
+if not os.path.exists('capturas/rostros'): os.makedirs('capturas/rostros')
 
 # --- INICIO ---
 print("Iniciando sistema...")
@@ -116,14 +117,14 @@ try:
                     timestamp = time.strftime("%Y%m%d_%H%M%S")
                     
                     # 1. Foto completa
-                    ruta_foto = os.path.join('capturas', f"foto_{timestamp}.jpg")
+                    ruta_foto = os.path.join('capturas/completas', f"foto_{timestamp}.jpg")
                     cv2.imwrite(ruta_foto, frame)
                     
                     # 2. Recorte del rostro (Escalando coordenadas x2 ya que frame_small es 240x320 y frame es 480x640)
                     rx, ry, rw, rh = x*2, y*2, w*2, h*2
                     rostro_crop = frame[ry:ry+rh, rx:rx+rw]
                     if rostro_crop.size > 0:
-                        ruta_rostro = os.path.join('capturas', f"rostro_{timestamp}.jpg")
+                        ruta_rostro = os.path.join('capturas/rostros', f"rostro_{timestamp}.jpg")
                         cv2.imwrite(ruta_rostro, rostro_crop)
                         print(f"¡Fotos guardadas!: {ruta_foto} y {ruta_rostro}")
                     else:
