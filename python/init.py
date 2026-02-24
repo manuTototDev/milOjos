@@ -62,8 +62,7 @@ SUAVIZADO_MOV = 0.03 # Movimiento ultra fluido
 posBase, posHombro, posCamV = 90.0, 60.0, 45.0
 targetBase, targetCamV = 90.0, 45.0
 ultimo_avistamiento = time.time()
-
-print("DEBUG Y: Revisa si el círculo rojo busca la línea blanca.")
+ultima_foto = 0 # Temporizador para cooldown de fotos
 
 try:
     while True:
@@ -86,9 +85,6 @@ try:
             x, y, w, h = max(faces, key=lambda f: f[2]*f[3])
             tx, ty = x + w//2, y + h//2 
             
-            cv2.rectangle(frame_small, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            cv2.circle(frame_small, (tx, ty), 5, (0, 0, 255), -1)
-
             # --- LÓGICA DE CENTRADO ---
             err_x = cx - tx
             err_y = cy - ty 
@@ -97,17 +93,44 @@ try:
             DEADZONE_X = 24 # 10% de 240
             DEADZONE_Y_VAL = 32 # 10% de 320
 
+            face_color = (0, 255, 0) # Verde por defecto
+
             # Eje X - Proporcional con deadzone
-            if abs(err_x) > DEADZONE_X:
+            centrado_x = abs(err_x) <= DEADZONE_X
+            if not centrado_x:
                 # Limitamos el paso a 0.7 para que no salte rápido
                 paso_x = np.clip(err_x * GANANCIA_X, -0.7, 0.7)
                 targetBase += paso_x
             
             # Eje Y - Centrado en canal 2 y 3
-            if abs(err_y) > DEADZONE_Y_VAL:
+            centrado_y = abs(err_y) <= DEADZONE_Y_VAL
+            if not centrado_y:
                 paso_y = np.clip(err_y * GANANCIA_Y, -MAX_STEP_Y, MAX_STEP_Y)
                 targetCamV += paso_y 
-                print(f"Centrando Y: error={err_y} | target={int(targetCamV)}")
+
+            # --- AUTO-FOTO AL ESTAR CENTRADO ---
+            if centrado_x and centrado_y:
+                if ahora - ultima_foto > 10.0:
+                    ultima_foto = ahora
+                    face_color = (255, 0, 0) # Azul al tomar foto
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+                    
+                    # 1. Foto completa
+                    ruta_foto = os.path.join('capturas', f"foto_{timestamp}.jpg")
+                    cv2.imwrite(ruta_foto, frame)
+                    
+                    # 2. Recorte del rostro (Escalando coordenadas x2 ya que frame_small es 240x320 y frame es 480x640)
+                    rx, ry, rw, rh = x*2, y*2, w*2, h*2
+                    rostro_crop = frame[ry:ry+rh, rx:rx+rw]
+                    if rostro_crop.size > 0:
+                        ruta_rostro = os.path.join('capturas', f"rostro_{timestamp}.jpg")
+                        cv2.imwrite(ruta_rostro, rostro_crop)
+                        print(f"¡Fotos guardadas!: {ruta_foto} y {ruta_rostro}")
+                    else:
+                        print(f"¡Foto guardada!: {ruta_foto}")
+
+            cv2.rectangle(frame_small, (x, y), (x+w, y+h), face_color, 2)
+            cv2.circle(frame_small, (tx, ty), 5, (0, 0, 255), -1)
 
 
         else:
