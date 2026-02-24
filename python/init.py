@@ -7,9 +7,14 @@ import os
 
 if not os.path.exists('capturas'): os.makedirs('capturas')
 
+# --- INICIO ---
+print("Iniciando sistema...")
+
 class VideoStream:
     def __init__(self, src):
-        self.cap = cv2.VideoCapture(src)
+        print("Abriendo cámara (esto puede tardar unos segundos)...")
+        # CAP_DSHOW es mucho más rápido en Windows
+        self.cap = cv2.VideoCapture(src, cv2.CAP_DSHOW)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.frame = None
@@ -35,20 +40,24 @@ class VideoStream:
 
 # --- SERIAL ---
 try:
+    print("Conectando con Arduino en COM6...")
     arduino = serial.Serial('COM6', 115200, timeout=0.01)
+    print("Arduino detectado, esperando reinicio (2s)...")
     time.sleep(2)
+    print("Arduino listo.")
 except: 
     print("Error: Revisa el puerto COM6"); exit()
 
+print("Iniciando detección...")
 vs = VideoStream(0).start()
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 # --- AJUSTES DE PRECISIÓN ---
-GANANCIA_X = 0.012   # Muy fino para que no oscile
-GANANCIA_Y = 0.15    # Más alto para forzar el centrado vertical
-DEADZONE_Y = 8       # Zona muerta más pequeña en Y para ser más exigente
-MAX_STEP_Y = 3.0     # Permitimos pasos más grandes en Y para compensar inercia
-SUAVIZADO_MOV = 0.15 
+GANANCIA_X = 0.005   # Muy suave para evitar velocidad excesiva
+GANANCIA_Y = -0.06   # Ajustado para centrado lento y preciso
+DEADZONE_Y = 5       
+MAX_STEP_Y = 1.0     # Paso máximo pequeño según preferencia del usuario
+SUAVIZADO_MOV = 0.03 # Movimiento ultra fluido
 
 posBase, posHombro, posCamV = 90.0, 60.0, 45.0
 targetBase, targetCamV = 90.0, 45.0
@@ -82,20 +91,24 @@ try:
 
             # --- LÓGICA DE CENTRADO ---
             err_x = cx - tx
-            err_y = cy - ty # Si la cara está arriba, ty < 160, err_y es positivo
+            err_y = cy - ty 
 
-            # Eje X
-            if abs(err_x) > 10:
-                targetBase += np.clip(err_x * GANANCIA_X, -2.0, 2.0)
+            # Tolerancia (Deadzone) del 10% total
+            DEADZONE_X = 24 # 10% de 240
+            DEADZONE_Y_VAL = 32 # 10% de 320
+
+            # Eje X - Proporcional con deadzone
+            if abs(err_x) > DEADZONE_X:
+                # Limitamos el paso a 0.7 para que no salte rápido
+                paso_x = np.clip(err_x * GANANCIA_X, -0.7, 0.7)
+                targetBase += paso_x
             
-            # Eje Y (Centrado Crítico)
-            if abs(err_y) > DEADZONE_Y:
-                # IMPORTANTE: Si el robot se mueve al revés en Y, cambia el signo de GANANCIA_Y
+            # Eje Y - Centrado en canal 2 y 3
+            if abs(err_y) > DEADZONE_Y_VAL:
                 paso_y = np.clip(err_y * GANANCIA_Y, -MAX_STEP_Y, MAX_STEP_Y)
                 targetCamV += paso_y 
-                
-                # Debug en consola para ver valores reales
-                # print(f"Error Y: {err_y} | Target Y: {int(targetCamV)}")
+                print(f"Centrando Y: error={err_y} | target={int(targetCamV)}")
+
 
         else:
             # Modo Búsqueda
