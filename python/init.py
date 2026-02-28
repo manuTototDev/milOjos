@@ -9,7 +9,7 @@ if not os.path.exists('capturas/completas'): os.makedirs('capturas/completas')
 if not os.path.exists('capturas/rostros'): os.makedirs('capturas/rostros')
 
 # --- INICIO ---
-print("Iniciando sistema con 3 Brazos...")
+print("Iniciando sistema con 4 Brazos...")
 
 class VideoStream:
     def __init__(self, src):
@@ -73,9 +73,10 @@ try:
         cx, cy = 120, 160
         ahora = time.time()
 
-        # Posiciones para Brazos 1 (0-3) y 3 (8-11)
+        # Posiciones para Brazos 1, 3 y 4
         b1 = [90, 60, 45, 90]
         b3 = [90, 60, 45, 90]
+        b4 = [90, 60, 45, 90]
 
         if len(faces) > 0:
             ultimo_avistamiento = ahora
@@ -109,9 +110,10 @@ try:
 
             cv2.rectangle(frame_small, (x, y), (x+w, y+h), face_color, 2)
             
-            # Brazos 1 y 3 imitan al principal
+            # Brazos 1, 3 y 4 imitan al principal
             b1 = [180 - targetBase, targetCamV + 10, targetCamV, 90]
             b3 = [targetBase, targetCamV - 10, targetCamV + 5, 90]
+            b4 = [180 - targetBase, targetCamV, targetCamV - 5, 90]
 
         else:
             if ahora - ultimo_avistamiento > 2.0:
@@ -120,6 +122,7 @@ try:
                 targetCamV = 70 + 30 * np.cos(f * 0.7)
                 b1 = [90 + 60 * np.cos(f*0.8), 65 + 15 * np.sin(f*0.5), 60 + 40 * np.sin(f*1.2), 90]
                 b3 = [90 + 55 * np.sin(f*0.9), 70 + 20 * np.cos(f*0.6), 55 + 35 * np.cos(f*1.1), 90]
+                b4 = [90 + 50 * np.cos(f*0.7), 60 + 10 * np.sin(f*0.8), 50 + 30 * np.sin(f*0.9), 90]
 
         # Suavizado y límites para Arm 2
         posBase += (targetBase - posBase) * SUAVIZADO_MOV
@@ -128,9 +131,11 @@ try:
         posCamV = np.clip(posCamV, 10, 140)
         
         # Envío con Sincronía '$'
+        # Brazo 1: 0-3, Brazo 2: 4-7, Brazo 3: 8-11, Brazo 4: 12-15
         cmd = f"${int(b1[0])},{int(b1[1])},{int(b1[2])},{int(b1[3])},"
         cmd += f"{int(posBase)},60,{int(posCamV)},90,"
-        cmd += f"{int(b3[0])},{int(b3[1])},{int(b3[2])},{int(b3[3])},1\n"
+        cmd += f"{int(b3[0])},{int(b3[1])},{int(b3[2])},{int(b3[3])},"
+        cmd += f"{int(b4[0])},{int(b4[1])},{int(b4[2])},{int(b4[3])},1\n"
         
         arduino.write(cmd.encode())
         time.sleep(0.02)
