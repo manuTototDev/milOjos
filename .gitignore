@@ -1,6 +1,12 @@
 .env
 *.jpg
+*.jpeg
 *.png
-python/capturas/completas/
-python/capturas/rostros/
-fcaesDes/
+
+
+# Ignore bulletin images but keep scripts in fcaesDes
+fcaesDes/*/boletines_completos/
+fcaesDes/*/fotos_recortadas/
+
+node_modules/
+.env
