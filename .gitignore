@@ -2,11 +2,18 @@
 *.jpg
 *.jpeg
 *.png
+*.whl
 
+# Pycache
+__pycache__/
+*.pyc
+
+# Virtual Environment
+python/venv/
+venv/
 
 # Ignore bulletin images but keep scripts in fcaesDes
 fcaesDes/*/boletines_completos/
 fcaesDes/*/fotos_recortadas/
 
 node_modules/
-.env
