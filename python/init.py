@@ -176,11 +176,13 @@ except:
 
 vs = VideoStream(0).start()
 
-# --- AJUSTES MOVIMIENTO ---
+# --- AJUSTES MOVIMIENTO (MODO NERVIOSO) ---
 posBase, posHombro, posCamV = 90.0, 60.0, 45.0
 targetBase, targetCamV = 90.0, 45.0
 ultimo_avistamiento = time.time()
 ultima_foto = 0
+last_known_base = 90.0
+last_known_camv = 70.0
 
 # --- ESTADO DE INTERFAZ STICKY ---
 current_display_indices = None
@@ -208,7 +210,7 @@ try:
             bbox = main_face.bbox.astype(int)
             cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
             
-            # Control de Brazo (Arm 2) - MAS RAPIDO
+            # --- LÓGICA DE CENTRADO ADAPTATIVO (CON CONVERGENCIA) ---
             img_h, img_w = frame.shape[:2]
             cx, cy = img_w // 2, img_h // 2
             tx, ty = (bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2
@@ -216,9 +218,49 @@ try:
             err_x = cx - tx
             err_y = cy - ty
             
-            # Subimos ganancias para mayor velocidad de reaccion
-            targetBase += np.clip(err_x * 0.05, -2.5, 2.5)
-            targetCamV += np.clip(err_y * -0.05, -2.0, 2.0)
+            # Normalizamos el error (-1.0 a 1.0) para aplicar el deadzone del 15%
+            err_x_rel = err_x / (img_w / 2)
+            err_y_rel = err_y / (img_h / 2)
+            
+            DEADZONE = 0.15 # 15% de cercanía al centro
+            
+            # --- CENTRADO EN X (Servo 1) ---
+            if abs(err_x_rel) < DEADZONE:
+                step_x = 0
+            else:
+                # Pasos proporcionales: más pequeños cuanto más cerca
+                GANANCIA_X = 0.15 
+                step_x = err_x_rel * GANANCIA_X * 10
+                step_x = np.clip(step_x, -4.0, 4.0)
+            targetBase += step_x
+            
+            # 2. SERVO 2: DELANTE / ATRÁS (Fijo en balance)
+            pos_arm2_v2 = 75 
+            
+            # --- CENTRADO EN Y (Servo 3) ---
+            if abs(err_y_rel) < DEADZONE:
+                step_y = 0
+            else:
+                # Invertido (-0.35 original) y adaptativo
+                GANANCIA_Y = -0.25 
+                step_y = err_y_rel * GANANCIA_Y * 15
+                step_y = np.clip(step_y, -5.0, 5.0)
+            targetCamV += step_y
+
+            # 4. SERVO 4: CUIDAR EL HORIZONTE (Relacionado con Servo 3)
+            pos_arm2_v4 = 180 - (targetCamV * 1.05) 
+            pos_arm2_v4 = np.clip(pos_arm2_v4, 40, 150)
+
+            # Recordar posición para búsqueda
+            last_known_base = targetBase
+            last_known_camv = targetCamV
+
+            # Feedback visual
+            dist = np.sqrt(err_x**2 + err_y**2)
+            if dist < 40:
+                cv2.putText(canvas, "ESTADO: ANALISIS CRITICO (LOCKED)", (110, 780), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            else:
+                cv2.putText(canvas, "ESTADO: INTERCEPTANDO SUJETO", (120, 780), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
             # Busqueda en DB con Logica Sticky
             if manager.database:
@@ -229,24 +271,19 @@ try:
                 history.append(best_idx_frame)
                 if len(history) > MAX_HISTORY: history.pop(0)
                 
-                # Determinar si el resultado es estable
                 most_common_id, count = Counter(history).most_common(1)[0]
                 
-                # Solo actualizamos el panel si es estable (8/15 frames)
                 if current_display_indices is None or (most_common_id != current_display_indices[0] and count >= 8):
                     current_display_indices = np.argsort(sims)[-4:][::-1]
 
-                # Dibujar siempre el contenido (basado en el ultimo estable)
                 if current_display_indices is not None:
                     gender = "Masc" if main_face.sex == 1 else "Fem"
-                    traits = f"TUS RASGOS: {gender} | Edad: {int(main_face.age)} anos"
+                    traits = f"PERFIL BIOMETRICO: {gender} | Edad: {int(main_face.age)} anos"
                     cv2.putText(canvas, traits, (10, 830), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                     
                     for i, idx in enumerate(current_display_indices):
                         m = manager.database[idx]
-                        # El score lo calculamos live para el idx estable
                         s_live = np.dot(m['embedding'], main_face.normed_embedding)
-                        
                         m_img = cv2.imread(m['original_path'])
                         if m_img is not None:
                             m_img = cv2.resize(m_img, (280, 330))
@@ -269,31 +306,45 @@ try:
                     cv2.imwrite(fname_r, face_crop)
                     print(f"Captura realizada: {ts}")
 
-            # Otros brazos imitan
-            b1 = [180 - targetBase, targetCamV + 10, targetCamV, 90]
-            b3 = [targetBase, targetCamV - 10, targetCamV + 5, 90]
-            b4 = [180 - targetBase, targetCamV, targetCamV - 5, 90]
+            # Otros brazos convergen (Vigilancia coordinada)
+            b1 = [180 - (targetBase - 5), targetCamV + 15, targetCamV, 90]
+            b3 = [targetBase + 5, targetCamV - 10, targetCamV + 10, 90]
+            b4 = [180 - targetBase, targetCamV + 5, targetCamV - 10, 90]
             
         else:
-            # Modo busqueda (barrido mas lento y suave)
-            if ahora - ultimo_avistamiento > 3.0:
+            # --- MODO BUSQUEDA INTELIGENTE / RECUERDO ---
+            tiempo_perdido = ahora - ultimo_avistamiento
+            pos_arm2_v2 = 60 # Posición de reposo
+            pos_arm2_v4 = 90 # Neutro
+            
+            if tiempo_perdido < 6.0:
                 history = []
-                f = ahora * 0.3
-                targetBase = 90 + 50 * np.sin(f)
-                targetCamV = 70 + 25 * np.cos(f * 0.6)
-                cv2.putText(canvas, "BUSCANDO ROSTROS...", (180, 400), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                t_j = ahora * 10
+                targetBase = last_known_base + 10 * np.sin(t_j)
+                targetCamV = last_known_camv + 5 * np.cos(t_j)
+                cv2.putText(canvas, "SUJETO PERDIDO: BUSCANDO...", (80, 420), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            else:
+                t_search = ahora * 0.3
+                targetBase = 90 + 60 * np.sin(t_search)
+                targetCamV = 70 + 10 * np.cos(t_search * 0.5)
+                cv2.putText(canvas, "ESCANEANDO ENTORNO...", (110, 420), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            
+            t_s = ahora * 0.25
+            b1 = [90 + 40 * np.sin(t_s), 60 + 5, 50, 90]
+            b3 = [90 + 40 * np.cos(t_s), 70, 60, 90]
+            b4 = [90 + 50 * np.sin(t_s * 0.5), 65, 55, 90]
 
-        # Enviar a Arduino - VELOCIDAD RECUPERADA
+        # Enviar a Arduino - MODO AGRESIVO CON COMPENSACION
         if arduino:
-            # Subimos el factor de interpolacion (0.025 -> 0.045) para mas agilidad
-            posBase += (targetBase - posBase) * 0.045
-            posCamV += (targetCamV - posCamV) * 0.045
+            factor = 0.12 if faces else 0.03
+            posBase += (targetBase - posBase) * factor
+            posCamV += (targetCamV - posCamV) * factor
             
             posBase = np.clip(posBase, 20, 160)
-            posCamV = np.clip(posCamV, 15, 135)
+            posCamV = np.clip(posCamV, 20, 130)
 
             cmd = f"${int(b1[0])},{int(b1[1])},{int(b1[2])},{int(b1[3])},"
-            cmd += f"{int(posBase)},60,{int(posCamV)},90,"
+            cmd += f"{int(posBase)},{int(pos_arm2_v2)},{int(posCamV)},{int(pos_arm2_v4)}," 
             cmd += f"{int(b3[0])},{int(b3[1])},{int(b3[2])},{int(b3[3])},"
             cmd += f"{int(b4[0])},{int(b4[1])},{int(b4[2])},{int(b4[3])},1\n"
             arduino.write(cmd.encode())
