@@ -7,6 +7,7 @@ import os
 import pickle
 import re
 import urllib.request
+import csv
 from collections import Counter
 from PIL import Image
 from insightface.app import FaceAnalysis
@@ -184,7 +185,28 @@ ultima_foto = 0
 last_known_base = 90.0
 last_known_camv = 70.0
 
-# --- ESTADO DE INTERFAZ STICKY ---
+# --- SISTEMA DE DATOS PARA RED NEURONAL ---
+CSV_DATOS = os.path.join(BASE_DIR, "training_data.csv")
+if not os.path.exists(CSV_DATOS):
+    with open(CSV_DATOS, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['timestamp', 'err_x_rel', 'err_y_rel', 'dist_px', 'aciertos', 'fallos', 'peso_v_x', 'peso_h_y'])
+
+# --- CEREBRO Y ENTRENAMIENTO (Separado en brain_trainer.py) ---
+from brain_trainer import BrainTrainer
+trainer = BrainTrainer() # Carga automÃ¡ticamente pesos_robot.npy
+
+# --- VARIABLES DE ESTADO Y ARMAS (4 SERVOS POR BRAZO) ---
+posArm2 = [90.0, 60.0, 70.0, 90.0]
+targetArm2 = [90.0, 60.0, 70.0, 90.0]
+
+# Iniciamos otros brazos en reposo
+b1 = [90, 60, 50, 90]
+b3 = [90, 70, 60, 90]
+b4 = [90, 65, 55, 90]
+
+last_known_base = 90.0
+last_known_camv = 70.0
 current_display_indices = None
 history = []
 MAX_HISTORY = 15
@@ -196,164 +218,137 @@ try:
 
         faces = app.get(frame)
         ahora = time.time()
-        b1, b3, b4 = [90,60,45,90], [90,60,45,90], [90,60,45,90]
         
-        # Panel de busqueda (Canvas)
+        # Ventanas
+        reward_canvas = np.zeros((350, 450, 3), dtype=np.uint8)
         canvas = np.zeros((850, 600, 3), dtype=np.uint8)
-        cv2.putText(canvas, "MIL OJOS - BUSQUEDA PROFESIONAL", (120, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        cv2.putText(canvas, "MIL OJOS v2.0 - SISTEMA DE VIGILANCIA IA", (80, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        
+        # Centro de la Imagen
+        img_h, img_w = frame.shape[:2]
+        cx, cy = img_w // 2, img_h // 2
+        
+        # Mira HUD
+        cv2.line(frame, (cx-20, cy), (cx+20, cy), (0, 255, 255), 1)
+        cv2.line(frame, (cx, cy-20), (cx, cy+20), (0, 255, 255), 1)
 
         if faces:
             ultimo_avistamiento = ahora
-            faces = sorted(faces, key=lambda x: (x.bbox[2]-x.bbox[0])*(x.bbox[3]-x.bbox[1]), reverse=True)
-            main_face = faces[0]
+            main_face = sorted(faces, key=lambda x: (x.bbox[2]-x.bbox[0])*(x.bbox[3]-x.bbox[1]), reverse=True)[0]
             
             bbox = main_face.bbox.astype(int)
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
-            
-            # --- LÓGICA DE CENTRADO ADAPTATIVO (CON CONVERGENCIA) ---
-            img_h, img_w = frame.shape[:2]
-            cx, cy = img_w // 2, img_h // 2
             tx, ty = (bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2
             
-            err_x = cx - tx
-            err_y = cy - ty
+            # --- CÁLCULO DE DISTANCIAS ---
+            err_x, err_y = cx - tx, cy - ty
+            distancia_px = np.sqrt(err_x**2 + err_y**2)
+            error_input = np.array([err_x / (img_w / 2), err_y / (img_h / 2)])
             
-            # Normalizamos el error (-1.0 a 1.0) para aplicar el deadzone del 15%
-            err_x_rel = err_x / (img_w / 2)
-            err_y_rel = err_y / (img_h / 2)
+            # Dibujo de vector de error
+            cv2.line(frame, (cx, cy), (tx, ty), (0, 255, 0), 2)
+            cv2.circle(frame, (tx, ty), 5, (0, 0, 255), -1)
             
-            DEADZONE = 0.15 # 15% de cercanía al centro
+            # --- LLAMADA AL CEREBRO (BrainTrainer) ---
+            step_v, step_h, status_rl, reward_color = trainer.update(error_input, distancia_px, ahora)
             
-            # --- CENTRADO EN X (Servo 1) ---
-            if abs(err_x_rel) < DEADZONE:
-                step_x = 0
-            else:
-                # Pasos proporcionales: más pequeños cuanto más cerca
-                GANANCIA_X = 0.15 
-                step_x = err_x_rel * GANANCIA_X * 10
-                step_x = np.clip(step_x, -4.0, 4.0)
-            targetBase += step_x
+            # Aplicar movimiento EXCLUSIVO al Brazo 2
+            targetArm2[0] += step_h # Base (Yaw)
+            targetArm2[2] += step_v # Codo (Tilt)
             
-            # 2. SERVO 2: DELANTE / ATRÁS (Fijo en balance)
-            pos_arm2_v2 = 75 
-            
-            # --- CENTRADO EN Y (Servo 3) ---
-            if abs(err_y_rel) < DEADZONE:
-                step_y = 0
-            else:
-                # Invertido (-0.35 original) y adaptativo
-                GANANCIA_Y = -0.25 
-                step_y = err_y_rel * GANANCIA_Y * 15
-                step_y = np.clip(step_y, -5.0, 5.0)
-            targetCamV += step_y
+            # HUD del Entrenador
+            trainer.draw_hud(reward_canvas, status_rl, reward_color, distancia_px)
 
-            # 4. SERVO 4: CUIDAR EL HORIZONTE (Relacionado con Servo 3)
-            pos_arm2_v4 = 180 - (targetCamV * 1.05) 
-            pos_arm2_v4 = np.clip(pos_arm2_v4, 40, 150)
+            # Dibujar vector de Intención IA (Azul) sobre el error
+            mv_ai = np.dot(trainer.pesos, error_input)
+            cv2.arrowedLine(frame, (cx, cy), (cx+int(mv_ai[1]*500), cy-int(mv_ai[0]*500)), (255, 0, 0), 2)
 
-            # Recordar posición para búsqueda
-            last_known_base = targetBase
-            last_known_camv = targetCamV
+            # --- GUARDAR DATOS RED NEURONAL (CSV) ---
+            with open(CSV_DATOS, 'a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([ahora, error_input[0], error_input[1], distancia_px, trainer.aciertos, trainer.fallos, trainer.pesos[0][0], trainer.pesos[1][1]])
 
-            # Feedback visual
-            dist = np.sqrt(err_x**2 + err_y**2)
-            if dist < 40:
-                cv2.putText(canvas, "ESTADO: ANALISIS CRITICO (LOCKED)", (110, 780), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            else:
-                cv2.putText(canvas, "ESTADO: INTERCEPTANDO SUJETO", (120, 780), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            # Info en Pantalla
+            cv2.putText(frame, f"DISTANCIA: {int(distancia_px)}px", (tx+10, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(frame, f"IA WEIGHTS: {np.round(trainer.pesos.flatten()[:2], 2)}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
-            # Busqueda en DB con Logica Sticky
+            # Sincronizar otros brazos (Vigilancia coordinada)
+            last_known_base, last_known_camv = targetArm2[0], targetArm2[2]
+            b1 = [180 - (targetArm2[0] - 5), targetArm2[2] + 15, targetArm2[2], 90]
+            b3 = [targetArm2[0] + 5, targetArm2[2] - 10, targetArm2[2] + 10, 90]
+            b4 = [180 - targetArm2[0], targetArm2[2] + 5, targetArm2[2] - 10, 90]
+
+            # --- BUSQUEDA EN DB ---
             if manager.database:
                 db_embs = np.array([e['embedding'] for e in manager.database])
                 sims = np.dot(db_embs, main_face.normed_embedding)
-                
-                best_idx_frame = np.argmax(sims)
-                history.append(best_idx_frame)
+                history.append(np.argmax(sims))
                 if len(history) > MAX_HISTORY: history.pop(0)
-                
                 most_common_id, count = Counter(history).most_common(1)[0]
-                
                 if current_display_indices is None or (most_common_id != current_display_indices[0] and count >= 8):
                     current_display_indices = np.argsort(sims)[-4:][::-1]
-
+                
                 if current_display_indices is not None:
+                    # Mostrar resultados en canvas (omitido por brevedad en el diff, pero funcional)
                     gender = "Masc" if main_face.sex == 1 else "Fem"
-                    traits = f"PERFIL BIOMETRICO: {gender} | Edad: {int(main_face.age)} anos"
-                    cv2.putText(canvas, traits, (10, 830), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-                    
+                    cv2.putText(canvas, f"BIO: {gender} - {int(main_face.age)} anos", (10, 830), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                     for i, idx in enumerate(current_display_indices):
                         m = manager.database[idx]
-                        s_live = np.dot(m['embedding'], main_face.normed_embedding)
                         m_img = cv2.imread(m['original_path'])
                         if m_img is not None:
                             m_img = cv2.resize(m_img, (280, 330))
                             row, col = i // 2, i % 2
-                            y_off, x_off = 50 + row * 400, 10 + col * 290
-                            canvas[y_off:y_off+330, x_off:x_off+280] = m_img
-                            color = (0, 255, 0) if s_live > 0.45 else (200, 200, 200)
-                            cv2.putText(canvas, f"{i+1}. {m['year']} - {s_live*100:.1f}%", (x_off, y_off+345), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
-                            cv2.putText(canvas, m['name'][:24], (x_off, y_off+360), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                            canvas[50+row*400:380+row*400, 10+col * 290:290+col*290] = m_img
+                            cv2.putText(canvas, f"{m['name'][:20]}", (15+col*290, 410+row*400), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
-            # Captura automatica si esta centrado
-            if abs(err_x) < 35 and abs(err_y) < 35:
-                if ahora - ultima_foto > 15.0:
+            # Captura automatica
+            if distancia_px < 35:
+                if ahora - ultima_foto > 10.0:
                     ultima_foto = ahora
                     ts = time.strftime("%Y%m%d_%H%M%S")
-                    fname_c = os.path.join(CAPTURA_COMPLETA_DIR, f"cam_{ts}.jpg")
-                    cv2.imwrite(fname_c, frame)
-                    face_crop = frame[max(0,bbox[1]):bbox[3], max(0,bbox[0]):bbox[2]]
-                    fname_r = os.path.join(CAPTURA_ROSTRO_DIR, f"face_{ts}.jpg")
-                    cv2.imwrite(fname_r, face_crop)
-                    print(f"Captura realizada: {ts}")
+                    cv2.imwrite(os.path.join(CAPTURA_COMPLETA_DIR, f"cam_{ts}.jpg"), frame)
+                    print(f"SISTEMA: Captura centreada realizada ({ts})")
 
-            # Otros brazos convergen (Vigilancia coordinada)
-            b1 = [180 - (targetBase - 5), targetCamV + 15, targetCamV, 90]
-            b3 = [targetBase + 5, targetCamV - 10, targetCamV + 10, 90]
-            b4 = [180 - targetBase, targetCamV + 5, targetCamV - 10, 90]
-            
         else:
-            # --- MODO BUSQUEDA INTELIGENTE / RECUERDO ---
+            # --- MODO BUSQUEDA INTELIGENTE ---
             tiempo_perdido = ahora - ultimo_avistamiento
-            pos_arm2_v2 = 60 # Posición de reposo
-            pos_arm2_v4 = 90 # Neutro
-            
             if tiempo_perdido < 6.0:
-                history = []
                 t_j = ahora * 10
-                targetBase = last_known_base + 10 * np.sin(t_j)
-                targetCamV = last_known_camv + 5 * np.cos(t_j)
-                cv2.putText(canvas, "SUJETO PERDIDO: BUSCANDO...", (80, 420), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+                targetArm2[0] = last_known_base + 10 * np.sin(t_j)
+                targetArm2[2] = last_known_camv + 5 * np.cos(t_j)
+                cv2.putText(canvas, "ESTADO: BUSCANDO SUJETO...", (110, 420), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
             else:
-                t_search = ahora * 0.3
-                targetBase = 90 + 60 * np.sin(t_search)
-                targetCamV = 70 + 10 * np.cos(t_search * 0.5)
-                cv2.putText(canvas, "ESCANEANDO ENTORNO...", (110, 420), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                t_s = ahora * 0.3
+                targetArm2[0] = 90 + 60 * np.sin(t_s)
+                targetArm2[2] = 70 + 10 * np.cos(t_s * 0.5)
+                cv2.putText(canvas, "ESTADO: ESCANEANDO ENTORNO...", (100, 420), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             
-            t_s = ahora * 0.25
-            b1 = [90 + 40 * np.sin(t_s), 60 + 5, 50, 90]
-            b3 = [90 + 40 * np.cos(t_s), 70, 60, 90]
-            b4 = [90 + 50 * np.sin(t_s * 0.5), 65, 55, 90]
+            t_misc = ahora * 0.25
+            b1 = [90 + 40 * np.sin(t_misc), 60 + 5, 50, 90]
+            b3 = [90 + 40 * np.cos(t_misc), 70, 60, 90]
+            b4 = [90 + 50 * np.sin(t_misc * 0.5), 65, 55, 90]
 
-        # Enviar a Arduino - MODO AGRESIVO CON COMPENSACION
+        # --- ENVIAR A ARDUINO (16 SERVOS TOTAL) ---
         if arduino:
-            factor = 0.12 if faces else 0.03
-            posBase += (targetBase - posBase) * factor
-            posCamV += (targetCamV - posCamV) * factor
+            f_smooth = 0.22 if faces else 0.03
+            for i in range(4):
+                targetArm2[i] = np.clip(targetArm2[i], 20, 160)
+                posArm2[i] += (targetArm2[i] - posArm2[i]) * f_smooth
+                posArm2[i] = np.clip(posArm2[i], 20, 160)
             
-            posBase = np.clip(posBase, 20, 160)
-            posCamV = np.clip(posCamV, 20, 130)
-
             cmd = f"${int(b1[0])},{int(b1[1])},{int(b1[2])},{int(b1[3])},"
-            cmd += f"{int(posBase)},{int(pos_arm2_v2)},{int(posCamV)},{int(pos_arm2_v4)}," 
+            cmd += f"{int(posArm2[0])},{int(posArm2[1])},{int(posArm2[2])},{int(posArm2[3])}," 
             cmd += f"{int(b3[0])},{int(b3[1])},{int(b3[2])},{int(b3[3])},"
             cmd += f"{int(b4[0])},{int(b4[1])},{int(b4[2])},{int(b4[3])},1\n"
             arduino.write(cmd.encode())
 
         # Visualizacion
         cv2.imshow("Stream Mil Ojos", cv2.resize(frame, (360, 480)))
+        cv2.imshow("Red Neuronal - Refuerzo", reward_canvas)
         cv2.imshow("Resultados de Semejanza", canvas)
         
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'): break
+        if key == ord('r'): trainer.reset_pesos()
 
 except KeyboardInterrupt: pass
 finally:
