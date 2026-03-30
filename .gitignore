@@ -11,10 +11,9 @@ __pycache__/
 venv/
 .venv/
 
-# ── Datos pesados (fotos, boletines, modelos) ──
+# ── Datos pesados (fotos, boletines) ──
 Web/backend/static/fotos_recortadas/
 Web/backend/static/boletines/
-Web/backend/face_database.pkl
 Dev/produccion/python/face_database.pkl
 Dev/produccion/python/venv/
 Dev/produccion/python/models/

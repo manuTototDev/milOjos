@@ -12,8 +12,11 @@ from insightface.app import FaceAnalysis
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-DB_FILE    = os.path.join(BASE_DIR, "face_database.pkl")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
+# En Render, los datos viven en el disco persistente /data/
+# En local, viven en ./static y ./face_database.pkl
+DATA_DIR   = os.environ.get("DATA_DIR", BASE_DIR)
+DB_FILE    = os.path.join(DATA_DIR, "face_database.pkl") if os.path.exists(os.path.join(os.environ.get("DATA_DIR", ""), "face_database.pkl")) else os.path.join(BASE_DIR, "face_database.pkl")
+STATIC_DIR = os.path.join(DATA_DIR, "static") if os.path.isdir(os.path.join(os.environ.get("DATA_DIR", ""), "static")) else os.path.join(BASE_DIR, "static")
 
 # ── FastAPI ───────────────────────────────────────────────────────────────────
 app = FastAPI(title="Mil Ojos API", version="1.0")
