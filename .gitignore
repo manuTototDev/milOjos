@@ -4,6 +4,7 @@ node_modules/
 out/
 .env
 .env.local
+Web/_hf_deploy/
 
 # ── Python ──
 __pycache__/
