@@ -1,0 +1,52 @@
+# ── Node / Next.js ──
+node_modules/
+.next/
+out/
+.env
+.env.local
+
+# ── Python ──
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# ── Datos pesados (fotos, boletines, modelos) ──
+Web/backend/static/fotos_recortadas/
+Web/backend/static/boletines/
+Web/backend/face_database.pkl
+Dev/produccion/python/face_database.pkl
+Dev/produccion/python/venv/
+Dev/produccion/python/models/
+Dev/produccion/python/*.whl
+Dev/produccion/fcaesDes/2020/
+Dev/produccion/fcaesDes/2021/
+Dev/produccion/fcaesDes/2022/
+Dev/produccion/fcaesDes/2023/
+Dev/produccion/fcaesDes/2024/
+Dev/produccion/fcaesDes/2025/
+Dev/produccion/fcaesDes/2026/
+Dev/produccion/fcaesDes/*.jpg
+Dev/produccion/rnpdno_data/
+Dev/produccion/rnpdno_test/
+Dev/produccion/capturas/
+
+# ── Logs / debug ──
+*.log
+Dev/produccion/rnpdno/debug_*
+Dev/produccion/rnpdno/run_output.txt
+Dev/produccion/rnpdno/scraper_log.txt
+Dev/produccion/rnpdno/api_log.json
+Dev/produccion/rnpdno/debug_btn_output.json
+Dev/produccion/rnpdno/debug_output.txt
+Dev/produccion/rnpdno/debug_pdf_log*.txt
+Dev/produccion/rnpdno/diag_page.png
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ──
+.vscode/
+.idea/
