@@ -105,8 +105,8 @@
 }
 .startBtn {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.18);
-  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(0,255,136,0.4);
+  color: #00ff88;
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.2em;
@@ -114,7 +114,12 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-.startBtn:hover { border-color: #fff; color: #fff; }
+.startBtn:hover {
+  background: rgba(0,255,136,0.08);
+  border-color: #00ff88;
+  color: #fff;
+  box-shadow: 0 0 20px rgba(0,255,136,0.15);
+}
 
 /* ── HUD ── */
 .hud {
@@ -209,8 +214,8 @@
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(2, 1fr);
   gap: 2px;
-  overflow: hidden;
   padding: 6px;
+  min-height: 0; /* allow grid to shrink within flex */
 }
 
 .emptyState {
@@ -223,29 +228,32 @@
 /* ── Tarjeta individual ── */
 .matchCard {
   position: relative;
-  overflow: visible;           /* permite flotar al hacer hover */
+  overflow: hidden;
   background: #0a0a0a;
   text-decoration: none;
   cursor: pointer;
-  transition: transform 0.22s ease, z-index 0s, box-shadow 0.22s ease;
+  transition: transform 0.22s ease, z-index 0s, box-shadow 0.22s ease, overflow 0s 0.22s;
   z-index: 1;
-  /* clip sólo cuando no hay hover */
-}
-
-/* El overflow:hidden lo ponemos al img para que no se desborde en reposo */
-.matchCard::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: inherit;
 }
 
 /* Hover: flota sobre todas las demás */
 .matchCard:hover {
   transform: scale(1.55);
   z-index: 50;
+  overflow: visible;
   box-shadow: 0 12px 48px rgba(0,0,0,0.9), 0 0 0 1px rgba(0,255,136,0.3);
+  transition: transform 0.22s ease, z-index 0s, box-shadow 0.22s ease, overflow 0s;
 }
+
+/* The before element should sit behind the SVG overlay */
+.matchCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  z-index: 0;
+}
+
 
 .matchImg {
   width: 100%;

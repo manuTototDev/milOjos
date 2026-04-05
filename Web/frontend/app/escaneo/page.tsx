@@ -143,10 +143,10 @@ function FaceScanOverlay({ active, delay, faceBox }: { active: boolean; delay: n
           key={i}
           d={d}
           fill="none"
-          stroke={phase === 2 ? 'rgba(0,255,136,0.25)' : '#00ff88'}
-          strokeWidth={phase === 2 ? '0.3' : '0.5'}
+          stroke={phase === 2 ? 'rgba(0,255,136,0.35)' : '#00ff88'}
+          strokeWidth={phase === 2 ? '0.5' : '0.8'}
           strokeDasharray={phase === 1 ? '2 3' : 'none'}
-          opacity={phase === 1 ? 0.8 : 0.2}
+          opacity={phase === 1 ? 0.9 : 0.3}
           style={{
             transition: 'opacity 0.4s, stroke 0.4s',
             animationDelay: phase === 1 ? `${i * 80}ms` : '0ms',
