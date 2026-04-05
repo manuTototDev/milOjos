@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import styles from './home.module.css';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 const PARAGRAPHS = [
   'Mil Ojos es una pieza de arte electrónico en forma de exoesqueleto equipado con nueve cámaras móviles distribuidas alrededor de la cabeza del portador. Cada cámara está montada sobre servomotores que le permiten moverse de forma independiente, girar y seguir objetos visuales. El sistema cuenta con un módulo de inteligencia artificial que compara en tiempo real los rostros detectados en el entorno con una base de datos de personas desaparecidas en México.',
   'Esta obra parte de una imposibilidad humana: reconocer, retener y cotejar los cientos de rostros de personas desaparecidas que circulan diariamente en afiches, pantallas o redes sociales. La pieza actúa como una metáfora técnica de una memoria extendida, un cuerpo expandido que busca incansablemente entre la multitud. Cada cámara, cada servo, cada conexión de datos, se convierte en un ojo vigilante que no olvida, que insiste.',
@@ -14,7 +16,7 @@ const SPECS = [
   { label: 'CÁMARAS', value: '9' },
   { label: 'SERVOMOTORES', value: '18' },
   { label: 'PROCESAMIENTO', value: 'TIEMPO REAL' },
-  { label: 'BASE DE DATOS', value: '11,375 FICHAS' },
+  { label: 'BASE DE DATOS', value: '_DB_COUNT_' },
   { label: 'PERÍODO', value: '2020–2026' },
   { label: 'REGIÓN', value: 'ESTADO DE MÉXICO' },
 ];
@@ -42,15 +44,29 @@ const PIPELINE_STEPS = [
   },
   {
     num: '05',
+    title: 'INFRAESTRUCTURA CLOUD',
+    desc: 'El backend corre en HuggingFace Spaces como contenedor Docker con FastAPI + InsightFace. Las imágenes se sirven desde un CDN dedicado. El frontend está desplegado en Vercel como aplicación Next.js. Todo opera sin servidores propios.',
+  },
+  {
+    num: '06',
     title: 'ACTUALIZACIÓN CONTINUA',
-    desc: 'El sistema se actualiza diariamente de forma automática: nuevos boletines son descargados, procesados e indexados. La base de datos crece con cada persona reportada como desaparecida, expandiendo el alcance de la búsqueda.',
+    desc: 'El sistema se actualiza periódicamente de forma automática: nuevos boletines son descargados, procesados e indexados. La base de datos crece con cada persona reportada como desaparecida, expandiendo el alcance de la búsqueda.',
   },
 ];
 
 export default function HomePage() {
   const [visibleIdx, setVisibleIdx] = useState(-1);
   const [glitchLine, setGlitchLine] = useState(0);
+  const [dbCount, setDbCount] = useState<string>('11,000+');
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch database count
+  useEffect(() => {
+    fetch(`${API}/`)
+      .then(r => r.json())
+      .then(d => setDbCount((d.personas ?? 0).toLocaleString()))
+      .catch(() => {});
+  }, []);
 
   // Reveal paragraphs one by one
   useEffect(() => {
@@ -99,7 +115,7 @@ export default function HomePage() {
             {SPECS.map((s, i) => (
               <div key={i} className={styles.spec}>
                 <span className={styles.specLabel}>{s.label}</span>
-                <span className={styles.specValue}>{s.value}</span>
+                <span className={styles.specValue}>{s.value === '_DB_COUNT_' ? `${dbCount} FICHAS` : s.value}</span>
               </div>
             ))}
           </div>
