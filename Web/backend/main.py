@@ -67,6 +67,38 @@ for i, entry in enumerate(raw_db):
 db_matrix = np.array(db_embeddings, dtype=np.float32)
 print(f"Base de datos lista: {len(database)} personas.")
 
+# ── Marcar entradas con imagen disponible ─────────────────────────────────────
+if USE_LOCAL_STATIC:
+    # Local: check disk
+    fotos_dir = os.path.join(STATIC_DIR, "fotos_recortadas")
+    available_fotos = set(os.listdir(fotos_dir)) if os.path.isdir(fotos_dir) else set()
+else:
+    # CDN: query HF Space file list at startup
+    print("Consultando archivos disponibles en HF Space...")
+    try:
+        from huggingface_hub import HfApi
+        _api = HfApi()
+        _all_files = _api.list_repo_files("manuTototDev/mil-ojos-api", repo_type="space")
+        available_fotos = {os.path.basename(f) for f in _all_files if f.startswith("static/fotos_recortadas/")}
+        print(f"  Fotos disponibles en CDN: {len(available_fotos)}")
+    except Exception as e:
+        print(f"  Error consultando HF: {e} — asumiendo todas disponibles")
+        available_fotos = None  # None = no filter
+
+count_available = 0
+for entry in database:
+    year = entry["year"]
+    # Reconstruct filename to check
+    foto_filename = entry["foto"].split("/")[-1]  # e.g. 2024_foto_NAME.jpg
+    if available_fotos is None:
+        entry["has_foto"] = True
+    else:
+        entry["has_foto"] = foto_filename in available_fotos
+    if entry["has_foto"]:
+        count_available += 1
+
+print(f"Personas con foto disponible: {count_available}/{len(database)}")
+
 # ── InsightFace ───────────────────────────────────────────────────────────────
 print("Cargando modelo InsightFace...")
 face_app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
@@ -134,7 +166,8 @@ else:
 
 @app.get("/")
 def health():
-    return {"status": "ok", "personas": len(database)}
+    available = sum(1 for e in database if e.get("has_foto"))
+    return {"status": "ok", "personas": len(database), "con_foto": available}
 
 
 @app.post("/search")
@@ -160,15 +193,20 @@ async def search_face(file: UploadFile = File(...)):
 
     # Similitud coseno (embeddings ya normalizados)
     similarities = np.dot(db_matrix, query_emb)
-    top8_idx     = np.argsort(similarities)[-8:][::-1]
+    # Get more candidates than needed, then filter by available images
+    top_idx = np.argsort(similarities)[-30:][::-1]
 
     results = []
-    for idx in top8_idx:
-        entry = database[idx].copy()
-        entry["score"] = float(round(similarities[idx] * 100, 1))
-        # Detectar face bbox en la foto del match (con caché)
-        entry["match_face_box"] = detect_face_in_photo(idx)
-        results.append(entry)
+    for idx in top_idx:
+        if len(results) >= 8:
+            break
+        entry = database[idx]
+        if not entry.get("has_foto", True):
+            continue  # Skip entries without uploaded images
+        result = entry.copy()
+        result["score"] = float(round(similarities[idx] * 100, 1))
+        result["match_face_box"] = detect_face_in_photo(idx)
+        results.append(result)
 
     # Atributos del visitante
     gender = "femenino" if main_face.sex == 0 else "masculino"
