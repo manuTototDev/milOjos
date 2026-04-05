@@ -12,11 +12,13 @@ from insightface.app import FaceAnalysis
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-# En Render, los datos viven en el disco persistente /data/
-# En local, viven en ./static y ./face_database.pkl
 DATA_DIR   = os.environ.get("DATA_DIR", BASE_DIR)
 DB_FILE    = os.path.join(DATA_DIR, "face_database.pkl") if os.path.exists(os.path.join(os.environ.get("DATA_DIR", ""), "face_database.pkl")) else os.path.join(BASE_DIR, "face_database.pkl")
 STATIC_DIR = os.path.join(DATA_DIR, "static") if os.path.isdir(os.path.join(os.environ.get("DATA_DIR", ""), "static")) else os.path.join(BASE_DIR, "static")
+
+# CDN base URL for images (when static files are not on disk)
+HF_CDN_BASE = "https://huggingface.co/spaces/manuTototDev/mil-ojos-api/resolve/main"
+USE_LOCAL_STATIC = os.path.isdir(STATIC_DIR) and len(os.listdir(os.path.join(STATIC_DIR, "fotos_recortadas", ""))) > 10 if os.path.isdir(os.path.join(STATIC_DIR, "fotos_recortadas")) else False
 
 # ── FastAPI ───────────────────────────────────────────────────────────────────
 app = FastAPI(title="Mil Ojos API", version="1.0")
@@ -42,15 +44,20 @@ for i, entry in enumerate(raw_db):
     name     = os.path.splitext(raw_name)[0]   # quitar .jpg
     year     = str(entry["year"])
 
-    # En disco:
-    #  fotos_recortadas/ → YEAR_foto_NOMBRE.jpg  (tiene prefijo foto_)
-    #  boletines/        → YEAR_NOMBRE.jpg        (sin prefijo)
+    # URLs: local /static/ when images on disk, HF CDN otherwise
+    if USE_LOCAL_STATIC:
+        foto_url = f"/static/fotos_recortadas/{year}_foto_{raw_name}"
+        bol_url  = f"/static/boletines/{year}_{raw_name}"
+    else:
+        foto_url = f"{HF_CDN_BASE}/static/fotos_recortadas/{year}_foto_{raw_name}"
+        bol_url  = f"{HF_CDN_BASE}/static/boletines/{year}_{raw_name}"
+
     database.append({
         "id":      i,
         "name":    name,
         "year":    year,
-        "foto":    f"/static/fotos_recortadas/{year}_foto_{raw_name}",
-        "boletin": f"/static/boletines/{year}_{raw_name}",
+        "foto":    foto_url,
+        "boletin": bol_url,
     })
     db_embeddings.append(entry["embedding"])
 
@@ -71,28 +78,32 @@ def detect_face_in_photo(entry_id: int) -> dict | None:
     """Detecta el rostro en la foto de una persona y retorna bbox normalizado."""
     if entry_id in face_bbox_cache:
         return face_bbox_cache[entry_id]
-    
+
+    # If images aren't on disk, return a default centered bbox
+    if not USE_LOCAL_STATIC:
+        face_bbox_cache[entry_id] = {"x": 0.1, "y": 0.05, "w": 0.8, "h": 0.85}
+        return face_bbox_cache[entry_id]
+
     entry = database[entry_id]
     foto_rel = entry["foto"]  # e.g. /static/fotos_recortadas/2024_foto_NAME.jpg
     foto_path = os.path.join(BASE_DIR, foto_rel.lstrip("/"))
-    
+
     if not os.path.exists(foto_path):
         face_bbox_cache[entry_id] = None
         return None
-    
+
     try:
         img = cv2.imread(foto_path)
         if img is None:
             face_bbox_cache[entry_id] = None
             return None
-        
+
         h, w = img.shape[:2]
         faces = face_app.get(img)
         if not faces:
-            # Default: assume face is centered
             face_bbox_cache[entry_id] = {"x": 0.1, "y": 0.05, "w": 0.8, "h": 0.85}
             return face_bbox_cache[entry_id]
-        
+
         face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0]) * (f.bbox[3]-f.bbox[1]))
         bbox = face.bbox.astype(float)
         result = {
@@ -107,8 +118,12 @@ def detect_face_in_photo(entry_id: int) -> dict | None:
         face_bbox_cache[entry_id] = None
         return None
 
-# ── Imágenes estáticas ────────────────────────────────────────────────────────
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# ── Imágenes estáticas (solo si están en disco) ──────────────────────────────
+if USE_LOCAL_STATIC:
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    print(f"Sirviendo imágenes locales desde {STATIC_DIR}")
+else:
+    print(f"Imágenes servidas desde CDN: {HF_CDN_BASE}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ENDPOINTS
