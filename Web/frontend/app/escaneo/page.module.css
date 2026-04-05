@@ -336,9 +336,47 @@
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
-  .root { grid-template-columns: 1fr; grid-template-rows: 50vh 1fr; }
-  .left { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.07); }
-  .grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); }
+  .root {
+    grid-template-columns: 1fr;
+    grid-template-rows: 55vh auto;
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .left {
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .right {
+    overflow: visible;
+    min-height: 45vh;
+  }
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, minmax(120px, 1fr));
+    overflow: visible;
+  }
+  .rightHeader { padding: 14px 16px 10px; }
+  .rightTitle { font-size: 13px; }
+  .dbCount { font-size: 15px; }
+  .matchCard:hover { transform: scale(1.3); }
+  .leftFooter { font-size: 8px; padding: 0 10px; }
+  .leftFooter .footerLink { display: none; }
+  .rightFooter { padding: 0 16px; }
+}
+
+@media (max-width: 480px) {
+  .root { grid-template-rows: 45vh auto; }
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, minmax(100px, 1fr));
+    padding: 4px;
+    gap: 1px;
+  }
+  .matchName { font-size: 7px; }
+  .matchScore { font-size: 10px; }
+  .startBtn { padding: 10px 20px; font-size: 9px; }
 }
 
 /* ── Keyframes ── */

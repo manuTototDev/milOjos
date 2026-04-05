@@ -182,8 +182,26 @@
 
 /* ── Responsive ── */
 @media (max-width: 800px) {
-  .content { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; }
-  .fotoSide { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .page {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+  .content {
+    grid-template-columns: 1fr;
+    grid-template-rows: 45vh auto;
+    overflow: visible;
+  }
+  .fotoSide {
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .boletinSide { overflow: visible; }
+  .boletinScroll { overflow: visible; }
+  .boletinHeader { padding: 16px 20px 12px; }
+  .name { font-size: 14px; }
+  .topNav { padding: 0 16px; }
+  .bottomNav { padding: 0 16px; }
 }
 
 /* ── Keyframes ── */

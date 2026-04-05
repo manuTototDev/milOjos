@@ -5,6 +5,7 @@
   display: flex;
   flex-direction: column;
   background: #000;
+  overflow-x: hidden;
 }
 
 /* ── Scan line ── */
@@ -59,7 +60,6 @@
 .content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  min-height: calc(100vh - 80px);
 }
 
 /* ── Left column ── */
@@ -249,7 +249,7 @@
 /* ── Pipeline steps ── */
 .pipeline {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 2px;
   margin-bottom: 48px;
 }
@@ -276,7 +276,7 @@
 }
 .pipelineStep:hover .stepNum { color: rgba(0,255,136,0.5); }
 
-.stepContent {}
+
 .stepTitle {
   font-family: var(--mono);
   font-size: 10px;
@@ -369,22 +369,51 @@
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
+  .nav {
+    padding: 0 16px;
+    gap: 8px;
+  }
+  .navTag:nth-child(2) {
+    display: none;
+  }
   .content {
     grid-template-columns: 1fr;
-    min-height: auto;
   }
   .left {
     border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.06);
-    padding: 32px 24px 24px;
+    padding: 32px 20px 24px;
   }
-  .right { padding: 32px 24px; }
+  .right { padding: 32px 20px; }
   .title { font-size: 48px; }
-  .specs { grid-template-columns: 1fr 1fr 1fr; }
-  .systemSection { padding: 40px 24px; }
+  .specs { grid-template-columns: 1fr 1fr; }
+  .systemSection { padding: 40px 20px; }
   .pipeline { grid-template-columns: 1fr; }
-  .flowDiagram { flex-direction: column; padding: 24px; }
+  .flowDiagram {
+    flex-direction: column;
+    padding: 20px 16px;
+    gap: 4px;
+  }
   .flowArrow { transform: rotate(90deg); }
+  .flowNode { padding: 12px 20px; width: 100%; }
+  .paragraph { max-width: 100%; }
+  .footnote p { max-width: 100%; }
+  .sectionSub { max-width: 100%; }
+  .footer {
+    padding: 0 16px;
+    flex-wrap: wrap;
+    height: auto;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .title { font-size: 36px; }
+  .specs { grid-template-columns: 1fr 1fr; gap: 0; }
+  .links { gap: 10px; }
+  .ctaLink { padding: 10px 16px; font-size: 9px; }
+  .sectionTitle { font-size: 14px; }
 }
 
 /* ── Keyframes ── */
