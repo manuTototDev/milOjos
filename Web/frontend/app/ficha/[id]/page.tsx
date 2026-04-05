@@ -34,8 +34,9 @@ export default function FichaPage({ params }: { params: Promise<{ id: string }> 
     </div>
   );
 
-  const fotoSrc    = `${API}${ficha.foto}`;
-  const boletinSrc = `${API}${ficha.boletin}`;
+  const url = (u: string) => u.startsWith('http') ? u : `${API}${u}`;
+  const fotoSrc    = url(ficha.foto);
+  const boletinSrc = url(ficha.boletin);
 
   return (
     <div className={styles.page}>

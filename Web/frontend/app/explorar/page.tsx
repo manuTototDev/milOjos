@@ -165,7 +165,7 @@ export default function ExplorarPage() {
           <div className={styles.grid}>
             {sorted.map(f => (
               <Link key={f.id} href={`/ficha/${f.id}`} className={styles.card} id={`ficha-card-${f.id}`}>
-                <img src={`${API}${f.foto}`} alt={f.name} className={styles.cardImg} loading="lazy" />
+                <img src={f.foto.startsWith('http') ? f.foto : `${API}${f.foto}`} alt={f.name} className={styles.cardImg} loading="lazy" />
                 <div className={styles.cardOverlay}>
                   <span className={styles.cardYear}>{f.year}</span>
                 </div>

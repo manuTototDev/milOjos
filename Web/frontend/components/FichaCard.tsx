@@ -14,7 +14,7 @@ interface Props {
 }
 
 export default function FichaCard({ id, name, year, foto, score, rank }: Props) {
-  const imgSrc = `${API}${foto}`;
+  const imgSrc = foto.startsWith('http') ? foto : `${API}${foto}`;
   const scoreColor = score !== undefined
     ? score > 60 ? '#4ade80' : score > 40 ? '#f4a261' : '#8896a8'
     : undefined;

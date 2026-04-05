@@ -205,6 +205,15 @@ export default function Home() {
   const [status, setStatus]       = useState<'idle'|'scanning'|'analyzing'|'no-face'|'error'>('idle');
   const [frameN, setFrameN]       = useState(0);
   const [scanReveal, setScanReveal] = useState(0); // auto-increments to trigger sequential scan
+  const [dbCount, setDbCount]       = useState<number | null>(null);
+
+  // ── Fetch DB count at mount ───────────────────────────────────────
+  useEffect(() => {
+    fetch(`${API}/`)
+      .then(r => r.json())
+      .then(d => setDbCount(d.con_foto ?? d.personas))
+      .catch(() => {});
+  }, []);
 
   // ── Repite la animación de escaneo facial cada 3s ─────────────────
   useEffect(() => {
@@ -451,7 +460,7 @@ export default function Home() {
           </div>
           <div className={styles.dbInfo}>
             <span className={styles.dataLabel}>base de datos</span>
-            <span className={styles.dbCount}>11,375</span>
+            <span className={styles.dbCount}>{dbCount !== null ? dbCount.toLocaleString() : '…'}</span>
             <span className={styles.dataLabel}>personas indexadas</span>
           </div>
         </div>
@@ -463,7 +472,7 @@ export default function Home() {
               </div>
             : matches.slice(0,8).map((m,i) => (
                 <Link key={m.id} href={`/ficha/${m.id}`} className={styles.matchCard} id={`match-card-${i}`}>
-                  <img src={`${API}${m.foto}`} alt={m.name} className={styles.matchImg}/>
+                  <img src={m.foto.startsWith('http') ? m.foto : `${API}${m.foto}`} alt={m.name} className={styles.matchImg}/>
                   <FaceScanOverlay active={scanReveal > 0} delay={i * 150} faceBox={m.match_face_box} key={`scan-${scanReveal}-${i}`} />
                   <div className={styles.matchOverlay}>
                     <span className={styles.matchRank}>{String(i+1).padStart(2,'0')}</span>
