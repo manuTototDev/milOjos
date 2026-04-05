@@ -44,13 +44,16 @@ for i, entry in enumerate(raw_db):
     name     = os.path.splitext(raw_name)[0]   # quitar .jpg
     year     = str(entry["year"])
 
+    # Boletin: use WebP version (much smaller), foto: keep JPG (already tiny)
+    bol_base = os.path.splitext(raw_name)[0] + ".webp"
+
     # URLs: local /static/ when images on disk, HF CDN otherwise
     if USE_LOCAL_STATIC:
         foto_url = f"/static/fotos_recortadas/{year}_foto_{raw_name}"
-        bol_url  = f"/static/boletines/{year}_{raw_name}"
+        bol_url  = f"/static/boletines_webp/{year}_{bol_base}"
     else:
         foto_url = f"{HF_CDN_BASE}/static/fotos_recortadas/{year}_foto_{raw_name}"
-        bol_url  = f"{HF_CDN_BASE}/static/boletines/{year}_{raw_name}"
+        bol_url  = f"{HF_CDN_BASE}/static/boletines_webp/{year}_{bol_base}"
 
     database.append({
         "id":      i,
