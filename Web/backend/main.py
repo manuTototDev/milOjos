@@ -110,13 +110,13 @@ print("Modelo listo.")
 face_bbox_cache: dict[int, dict | None] = {}
 
 def detect_face_in_photo(entry_id: int) -> dict | None:
-    """Detecta el rostro en la foto de una persona y retorna bbox normalizado."""
+    """Detecta el rostro en la foto de una persona y retorna bbox + lm106 normalizados."""
     if entry_id in face_bbox_cache:
         return face_bbox_cache[entry_id]
 
-    # If images aren't on disk, return a default centered bbox
+    # If images aren't on disk, return a default centered bbox (no landmarks)
     if not USE_LOCAL_STATIC:
-        face_bbox_cache[entry_id] = {"x": 0.1, "y": 0.05, "w": 0.8, "h": 0.85}
+        face_bbox_cache[entry_id] = {"x": 0.1, "y": 0.05, "w": 0.8, "h": 0.85, "lm106": []}
         return face_bbox_cache[entry_id]
 
     entry = database[entry_id]
@@ -136,16 +136,24 @@ def detect_face_in_photo(entry_id: int) -> dict | None:
         h, w = img.shape[:2]
         faces = face_app.get(img)
         if not faces:
-            face_bbox_cache[entry_id] = {"x": 0.1, "y": 0.05, "w": 0.8, "h": 0.85}
+            face_bbox_cache[entry_id] = {"x": 0.1, "y": 0.05, "w": 0.8, "h": 0.85, "lm106": []}
             return face_bbox_cache[entry_id]
 
         face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0]) * (f.bbox[3]-f.bbox[1]))
         bbox = face.bbox.astype(float)
+
+        # Extract 106 landmarks if available
+        lm106 = []
+        if hasattr(face, 'landmark_2d_106') and face.landmark_2d_106 is not None:
+            for pt in face.landmark_2d_106:
+                lm106.append({"x": float(pt[0] / w), "y": float(pt[1] / h)})
+
         result = {
             "x": float(max(0, bbox[0]) / w),
             "y": float(max(0, bbox[1]) / h),
             "w": float(min(bbox[2] - bbox[0], w) / w),
             "h": float(min(bbox[3] - bbox[1], h) / h),
+            "lm106": lm106,
         }
         face_bbox_cache[entry_id] = result
         return result

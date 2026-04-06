@@ -9,7 +9,7 @@ const HISTORY_SIZE  = 12;
 const STICKY_THRESH = 6;
 const ZOOM          = 1.28;
 
-interface FaceBox { x: number; y: number; w: number; h: number; }
+interface FaceBox { x: number; y: number; w: number; h: number; lm106?: Pt[]; }
 interface Pt       { x: number; y: number; }
 interface Match    { id: number; name: string; year: string; foto: string; boletin: string; score: number; match_face_box?: FaceBox | null; }
 interface Visitor  { gender: string; age: number; }
@@ -83,106 +83,71 @@ function AnimatedScore({ value, color }: { value: number; color: string }) {
   );
 }
 
-// ── Face scan SVG overlay for match cards ───────────────────────────
-function FaceScanOverlay({ active, delay, faceBox }: { active: boolean; delay: number; faceBox?: FaceBox | null }) {
-  const [phase, setPhase] = useState(0); // 0=hidden, 1=scanning, 2=done
+// ── Real landmark overlay for match cards ───────────────────────────
+function MatchLandmarkOverlay({ active, delay, faceBox }: { active: boolean; delay: number; faceBox?: FaceBox | null }) {
+  const [phase, setPhase] = useState(0); // 0=hidden, 1=scanning, 2=settled
+  const [groupIdx, setGroupIdx] = useState(0);
 
   useEffect(() => {
-    if (!active) { setPhase(0); return; }
+    if (!active) { setPhase(0); setGroupIdx(0); return; }
     const t1 = setTimeout(() => setPhase(1), delay);
-    const t2 = setTimeout(() => setPhase(2), delay + 800);
+    const t2 = setTimeout(() => setPhase(2), delay + 1200);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [active, delay]);
 
+  // Cycle through landmark groups while scanning
+  useEffect(() => {
+    if (phase !== 1 && phase !== 2) return;
+    const id = setInterval(() => setGroupIdx(g => (g + 1) % LM_GROUPS.length), 400);
+    return () => clearInterval(id);
+  }, [phase]);
+
   if (phase === 0) return null;
 
-  // Face region in percentage (0-100 scale for SVG viewBox)
-  // If we have a real bbox from InsightFace, use it; otherwise default center
-  const fx = (faceBox?.x ?? 0.1) * 100;
-  const fy = (faceBox?.y ?? 0.05) * 100;
-  const fw = (faceBox?.w ?? 0.8) * 100;
-  const fh = (faceBox?.h ?? 0.85) * 100;
-  const cx = fx + fw / 2;  // center x
-  const cy = fy + fh / 2;  // center y
+  const lm = faceBox?.lm106 ?? [];
+  const hasLandmarks = lm.length >= 106;
 
-  // Scale helper: map 0-100 face-relative coords to actual position
-  const px = (v: number) => fx + (v / 100) * fw;
-  const py = (v: number) => fy + (v / 100) * fh;
-
-  // Face mesh paths positioned relative to the face bbox
-  const lines = [
-    // jaw
-    `M${px(10)},${py(55)} Q${px(15)},${py(75)} ${px(30)},${py(82)} Q${px(50)},${py(95)} ${px(70)},${py(82)} Q${px(85)},${py(75)} ${px(90)},${py(55)}`,
-    // left eye
-    `M${px(22)},${py(35)} Q${px(28)},${py(28)} ${px(38)},${py(32)} Q${px(40)},${py(36)} ${px(38)},${py(38)} Q${px(28)},${py(39)} ${px(22)},${py(35)}`,
-    // right eye
-    `M${px(62)},${py(32)} Q${px(72)},${py(28)} ${px(78)},${py(35)} Q${px(76)},${py(39)} ${px(66)},${py(38)} Q${px(60)},${py(36)} ${px(62)},${py(32)}`,
-    // nose bridge
-    `M${px(50)},${py(30)} L${px(48)},${py(48)} L${px(42)},${py(55)} Q${px(50)},${py(58)} ${px(58)},${py(55)} L${px(52)},${py(48)} L${px(50)},${py(30)}`,
-    // mouth
-    `M${px(32)},${py(68)} Q${px(42)},${py(62)} ${px(50)},${py(64)} Q${px(58)},${py(62)} ${px(68)},${py(68)} Q${px(58)},${py(76)} ${px(50)},${py(78)} Q${px(42)},${py(76)} ${px(32)},${py(68)}`,
-    // left brow
-    `M${px(18)},${py(26)} Q${px(28)},${py(18)} ${px(42)},${py(24)}`,
-    // right brow
-    `M${px(58)},${py(24)} Q${px(72)},${py(18)} ${px(82)},${py(26)}`,
-    // face contour
-    `M${px(50)},${py(6)} Q${px(20)},${py(6)} ${px(12)},${py(30)} Q${px(5)},${py(50)} ${px(15)},${py(70)} Q${px(30)},${py(90)} ${px(50)},${py(96)} Q${px(70)},${py(90)} ${px(85)},${py(70)} Q${px(95)},${py(50)} ${px(88)},${py(30)} Q${px(80)},${py(6)} ${px(50)},${py(6)}`,
-  ];
-
-  // Horizontal scan lines across face region
-  const scanLines = Array.from({ length: 6 }, (_, i) => {
-    const yy = py(15 + i * 14);
-    return { y: yy, x1: fx + 2, x2: fx + fw - 2 };
-  });
+  // Get current group lines to draw
+  const currentLines = hasLandmarks ? LM_GROUPS[groupIdx] : [];
 
   return (
     <svg className={styles.faceScanSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
-      {/* Face mesh paths */}
-      {lines.map((d, i) => (
-        <path
-          key={i}
-          d={d}
-          fill="none"
-          stroke={phase === 2 ? 'rgba(0,255,136,0.35)' : '#00ff88'}
-          strokeWidth={phase === 2 ? '0.5' : '0.8'}
-          strokeDasharray={phase === 1 ? '2 3' : 'none'}
-          opacity={phase === 1 ? 0.9 : 0.3}
-          style={{
-            transition: 'opacity 0.4s, stroke 0.4s',
-            animationDelay: phase === 1 ? `${i * 80}ms` : '0ms',
-          }}
-          className={phase === 1 ? styles.scanLineAnim : ''}
+      {/* Real landmark lines cycling through face regions */}
+      {hasLandmarks && currentLines.map(([a, b], i) => {
+        // Landmarks are normalized 0-1, scale to 0-100 for viewBox
+        const ax = lm[a].x * 100, ay = lm[a].y * 100;
+        const bx = lm[b].x * 100, by = lm[b].y * 100;
+        return (
+          <line key={`${groupIdx}-${i}`}
+            x1={ax} y1={ay} x2={bx} y2={by}
+            stroke="#00ff88" strokeWidth="0.6"
+            opacity={phase === 1 ? 0.8 : 0.35}
+            strokeDasharray={phase === 1 ? '2 3' : 'none'}
+            className={phase === 1 ? styles.scanLineAnim : ''}
+            style={{ animationDelay: `${i * 30}ms` }}>
+            {phase === 1 && (
+              <animate attributeName="opacity"
+                from="0" to="0.8" dur="0.15s" fill="freeze"/>
+            )}
+          </line>
+        );
+      })}
+      {/* Landmark dots (all 106) — subtle settled state */}
+      {hasLandmarks && phase === 2 && lm.map((pt, i) => (
+        <circle key={`d-${i}`}
+          cx={pt.x * 100} cy={pt.y * 100} r="0.35"
+          fill="#00ff88" opacity="0.2"
         />
       ))}
-      {/* Horizontal scan lines during analysis */}
-      {phase === 1 && scanLines.map((sl, i) => (
-        <line
-          key={`sl-${i}`}
-          x1={sl.x1} y1={sl.y} x2={sl.x2} y2={sl.y}
-          stroke="#00ff88"
-          strokeWidth="0.2"
-          opacity="0.3"
-          strokeDasharray="1 2"
-          className={styles.scanLineAnim}
-          style={{ animationDelay: `${i * 60}ms` }}
-        />
-      ))}
-      {/* Vertical scan beam */}
+      {/* Horizontal scan beam during scanning */}
       {phase === 1 && (
         <line
-          x1={fx} x2={fx + fw}
+          x1="5" x2="95"
           className={styles.scanBeam}
           stroke="#00ff88"
-          strokeWidth="0.4"
-          opacity="0.5"
+          strokeWidth="0.3"
+          opacity="0.4"
         />
-      )}
-      {/* Crosshair on face center during scan */}
-      {phase === 1 && (
-        <>
-          <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke="#00ff88" strokeWidth="0.3" opacity="0.6" />
-          <line x1={cx} y1={cy - 3} x2={cx} y2={cy + 3} stroke="#00ff88" strokeWidth="0.3" opacity="0.6" />
-        </>
       )}
     </svg>
   );
@@ -473,7 +438,7 @@ export default function Home() {
             : matches.slice(0,8).map((m,i) => (
                 <Link key={m.id} href={`/ficha/${m.id}`} className={styles.matchCard} id={`match-card-${i}`}>
                   <img src={m.foto.startsWith('http') ? m.foto : `${API}${m.foto}`} alt={m.name} className={styles.matchImg}/>
-                  <FaceScanOverlay active={scanReveal > 0} delay={i * 150} faceBox={m.match_face_box} key={`scan-${scanReveal}-${i}`} />
+                  <MatchLandmarkOverlay active={scanReveal > 0} delay={i * 150} faceBox={m.match_face_box} key={`scan-${scanReveal}-${i}`} />
                   <div className={styles.matchOverlay}>
                     <span className={styles.matchRank}>{String(i+1).padStart(2,'0')}</span>
                     <AnimatedScore
