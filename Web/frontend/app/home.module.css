@@ -67,11 +67,12 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 48px 40px 32px;
+  padding: 28px 40px 20px;
   border-right: 1px solid rgba(255,255,255,0.06);
+  min-height: calc(100vh - 44px);
 }
 
-.titleBlock { margin-bottom: 24px; }
+.titleBlock { margin-bottom: 12px; }
 
 .tag {
   font-family: var(--mono);
@@ -83,12 +84,12 @@
 
 .title {
   font-family: var(--mono);
-  font-size: clamp(48px, 8vw, 96px);
+  font-size: clamp(42px, 7vw, 80px);
   font-weight: 300;
   letter-spacing: 0.12em;
   line-height: 0.95;
   color: rgba(255,255,255,0.9);
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .cursor {
@@ -102,8 +103,8 @@
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.2);
-  margin-top: 24px;
-  padding-top: 16px;
+  margin-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
@@ -123,7 +124,7 @@
   font-family: var(--mono);
   font-size: 8px;
   letter-spacing: 0.18em;
-  color: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.4);
   margin-bottom: 4px;
 }
 .specValue {
@@ -183,9 +184,9 @@
 
 .paragraph {
   font-family: var(--sans);
-  font-size: 15px;
+  font-size: 11px;
   line-height: 1.9;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.9);
   letter-spacing: 0.01em;
   max-width: 540px;
   opacity: 0;
@@ -205,7 +206,7 @@
   font-size: 10px;
   letter-spacing: 0.06em;
   line-height: 1.8;
-  color: rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.85);
   max-width: 480px;
   font-style: italic;
 }
