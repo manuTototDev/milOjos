@@ -104,21 +104,24 @@
   line-height: 1.8; letter-spacing: 0.05em; max-width: 220px;
 }
 .startBtn {
-  background: transparent;
-  border: 1px solid rgba(0,255,136,0.4);
-  color: #00ff88;
+  background: #00ff88;
+  border: 1px solid #00ff88;
+  color: #000;
   font-family: var(--mono);
   font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.2em;
-  padding: 12px 28px;
+  padding: 14px 32px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 24px rgba(0,255,136,0.25), 0 0 60px rgba(0,255,136,0.08);
 }
 .startBtn:hover {
-  background: rgba(0,255,136,0.08);
-  border-color: #00ff88;
-  color: #fff;
-  box-shadow: 0 0 20px rgba(0,255,136,0.15);
+  background: #00ff99;
+  border-color: #00ff99;
+  color: #000;
+  box-shadow: 0 0 32px rgba(0,255,136,0.4), 0 0 80px rgba(0,255,136,0.15);
+  transform: translateY(-1px);
 }
 
 /* ── HUD ── */
