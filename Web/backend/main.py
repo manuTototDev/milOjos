@@ -16,8 +16,8 @@ DATA_DIR   = os.environ.get("DATA_DIR", BASE_DIR)
 DB_FILE    = os.path.join(DATA_DIR, "face_database.pkl") if os.path.exists(os.path.join(os.environ.get("DATA_DIR", ""), "face_database.pkl")) else os.path.join(BASE_DIR, "face_database.pkl")
 STATIC_DIR = os.path.join(DATA_DIR, "static") if os.path.isdir(os.path.join(os.environ.get("DATA_DIR", ""), "static")) else os.path.join(BASE_DIR, "static")
 
-# CDN base URL for images (when static files are not on disk)
-HF_CDN_BASE = "https://huggingface.co/spaces/manuTototDev/mil-ojos-api/resolve/main"
+# CDN base URL for images (served from HF Dataset — no file limit)
+HF_CDN_BASE = "https://huggingface.co/datasets/manuTototDev/mil-ojos-images/resolve/main"
 USE_LOCAL_STATIC = os.path.isdir(STATIC_DIR) and len(os.listdir(os.path.join(STATIC_DIR, "fotos_recortadas", ""))) > 10 if os.path.isdir(os.path.join(STATIC_DIR, "fotos_recortadas")) else False
 
 # ── FastAPI ───────────────────────────────────────────────────────────────────
@@ -52,8 +52,8 @@ for i, entry in enumerate(raw_db):
         foto_url = f"/static/fotos_recortadas/{year}_foto_{raw_name}"
         bol_url  = f"/static/boletines_webp/{year}_{bol_base}"
     else:
-        foto_url = f"{HF_CDN_BASE}/static/fotos_recortadas/{year}_foto_{raw_name}"
-        bol_url  = f"{HF_CDN_BASE}/static/boletines_webp/{year}_{bol_base}"
+        foto_url = f"{HF_CDN_BASE}/fotos_recortadas/{year}_foto_{raw_name}"
+        bol_url  = f"{HF_CDN_BASE}/boletines_webp/{year}_{bol_base}"
 
     database.append({
         "id":      i,
@@ -73,13 +73,13 @@ if USE_LOCAL_STATIC:
     fotos_dir = os.path.join(STATIC_DIR, "fotos_recortadas")
     available_fotos = set(os.listdir(fotos_dir)) if os.path.isdir(fotos_dir) else set()
 else:
-    # CDN: query HF Space file list at startup
-    print("Consultando archivos disponibles en HF Space...")
+    # CDN: query HF Dataset file list at startup
+    print("Consultando archivos disponibles en HF Dataset...")
     try:
         from huggingface_hub import HfApi
         _api = HfApi()
-        _all_files = _api.list_repo_files("manuTototDev/mil-ojos-api", repo_type="space")
-        available_fotos = {os.path.basename(f) for f in _all_files if f.startswith("static/fotos_recortadas/")}
+        _all_files = _api.list_repo_files("manuTototDev/mil-ojos-images", repo_type="dataset")
+        available_fotos = {os.path.basename(f) for f in _all_files if f.startswith("fotos_recortadas/")}
         print(f"  Fotos disponibles en CDN: {len(available_fotos)}")
     except Exception as e:
         print(f"  Error consultando HF: {e} — asumiendo todas disponibles")

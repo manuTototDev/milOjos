@@ -1,6 +1,7 @@
 // deploy: 2026-04-06
 import type { Metadata } from "next";
 import "./globals.css";
+import LoadingGate from "@/components/LoadingGate";
 
 export const metadata: Metadata = {
   title: "MIL OJOS — Sistema de reconocimiento facial",
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <LoadingGate>{children}</LoadingGate>
+      </body>
     </html>
   );
 }
