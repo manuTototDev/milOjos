@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from PIL import Image
+import zipfile
 import cv2
 from insightface.app import FaceAnalysis
 
@@ -14,6 +15,29 @@ from insightface.app import FaceAnalysis
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.environ.get("DATA_DIR", BASE_DIR)
 DB_FILE    = os.path.join(DATA_DIR, "face_database.pkl") if os.path.exists(os.path.join(os.environ.get("DATA_DIR", ""), "face_database.pkl")) else os.path.join(BASE_DIR, "face_database.pkl")
+STATIC_DIR = os.path.join(DATA_DIR, "static") if os.path.isdir(os.path.join(os.environ.get("DATA_DIR", ""), "static")) else os.path.join(BASE_DIR, "static")
+
+# ── Extracción de ZIPs ────────────────────────────────────────────────────────
+def setup_static_from_zips():
+    os.makedirs(STATIC_DIR, exist_ok=True)
+    fotos_dir = os.path.join(STATIC_DIR, "fotos_recortadas")
+    boletines_dir = os.path.join(STATIC_DIR, "boletines_webp")
+    
+    fotos_zip = os.path.join(BASE_DIR, "fotos.zip")
+    boletines_zip = os.path.join(BASE_DIR, "boletines.zip")
+    
+    if os.path.exists(fotos_zip) and not os.path.isdir(fotos_dir):
+        print(f"Descomprimiendo {fotos_zip}...")
+        with zipfile.ZipFile(fotos_zip, 'r') as zip_ref:
+            zip_ref.extractall(STATIC_DIR)
+            
+    if os.path.exists(boletines_zip) and not os.path.isdir(boletines_dir):
+        print(f"Descomprimiendo {boletines_zip}...")
+        with zipfile.ZipFile(boletines_zip, 'r') as zip_ref:
+            zip_ref.extractall(STATIC_DIR)
+
+# Ejecutar antes de evaluar USE_LOCAL_STATIC
+setup_static_from_zips()
 STATIC_DIR = os.path.join(DATA_DIR, "static") if os.path.isdir(os.path.join(os.environ.get("DATA_DIR", ""), "static")) else os.path.join(BASE_DIR, "static")
 
 # CDN base URL for images (served from HF Dataset — no file limit)
