@@ -29,12 +29,12 @@ def setup_static_from_zips():
     if os.path.exists(fotos_zip) and not os.path.isdir(fotos_dir):
         print(f"Descomprimiendo {fotos_zip}...")
         with zipfile.ZipFile(fotos_zip, 'r') as zip_ref:
-            zip_ref.extractall(STATIC_DIR)
+            zip_ref.extractall(fotos_dir)
             
     if os.path.exists(boletines_zip) and not os.path.isdir(boletines_dir):
         print(f"Descomprimiendo {boletines_zip}...")
         with zipfile.ZipFile(boletines_zip, 'r') as zip_ref:
-            zip_ref.extractall(STATIC_DIR)
+            zip_ref.extractall(boletines_dir)
 
 # Ejecutar antes de evaluar USE_LOCAL_STATIC
 setup_static_from_zips()
