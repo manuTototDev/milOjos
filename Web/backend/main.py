@@ -5,11 +5,16 @@ import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from PIL import Image
 import zipfile
 import cv2
+import httpx
 from insightface.app import FaceAnalysis
+
+# ── Caché de imágenes en memoria ──────────────────────────────────────────────
+# Clave: filename (ej. "2024_foto_NAME.jpg"), Valor: bytes
+_img_cache: dict[str, bytes] = {}
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -76,13 +81,13 @@ for i, entry in enumerate(raw_db):
     # Boletin: use WebP version (much smaller), foto: keep JPG (already tiny)
     bol_base = os.path.splitext(raw_name)[0] + ".webp"
 
-    # URLs: local /static/ when images on disk, HF CDN otherwise
+    # URLs: local /static/ when images on disk, proxy otherwise
     if USE_LOCAL_STATIC:
         foto_url = f"/static/fotos_recortadas/{year}_foto_{raw_name}"
         bol_url  = f"/static/boletines_webp/{year}_{bol_base}"
     else:
-        foto_url = f"{HF_CDN_BASE}/fotos_recortadas/{year}_foto_{raw_name}"
-        bol_url  = f"{HF_CDN_BASE}/boletines_webp/{year}_{bol_base}"
+        foto_url = f"/img/fotos_recortadas/{year}_foto_{raw_name}"
+        bol_url  = f"/img/boletines_webp/{year}_{bol_base}"
 
     database.append({
         "id":      i,
@@ -186,7 +191,50 @@ if USE_LOCAL_STATIC:
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     print(f"Sirviendo imágenes locales desde {STATIC_DIR}")
 else:
-    print(f"Imágenes servidas desde CDN: {HF_CDN_BASE}")
+    print(f"Imágenes servidas vía proxy caché desde {HF_CDN_BASE}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PROXY DE IMÁGENES — cachea en RAM, evita latencia HF→Navegador
+# ══════════════════════════════════════════════════════════════════════════════
+@app.get("/img/{folder}/{filename}")
+async def img_proxy(folder: str, filename: str):
+    """Proxy con caché en memoria para imágenes del dataset HF."""
+    # Solo permitir carpetas conocidas
+    if folder not in ("fotos_recortadas", "boletines_webp"):
+        raise HTTPException(404, "Carpeta desconocida")
+
+    cache_key = f"{folder}/{filename}"
+
+    if cache_key in _img_cache:
+        data = _img_cache[cache_key]
+    else:
+        cdn_url = f"{HF_CDN_BASE}/{folder}/{filename}"
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.get(cdn_url)
+            if r.status_code != 200:
+                raise HTTPException(r.status_code, "Imagen no encontrada en CDN")
+            data = r.content
+            # Solo cachear fotos (pequeñas). Boletines son pesados, no los acumulamos.
+            if folder == "fotos_recortadas":
+                _img_cache[cache_key] = data
+        except httpx.TimeoutException:
+            raise HTTPException(504, "Timeout al obtener imagen")
+
+    # Detectar content-type por extensión
+    ext = filename.rsplit(".", 1)[-1].lower()
+    ctype = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+             "webp": "image/webp", "png": "image/png"}.get(ext, "image/jpeg")
+
+    return Response(
+        content=data,
+        media_type=ctype,
+        headers={
+            # Navegador cachea 7 días, CDN intermedio 1 día
+            "Cache-Control": "public, max-age=604800, s-maxage=86400",
+        }
+    )
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ENDPOINTS
