@@ -6,10 +6,9 @@ import styles from './home.module.css';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const PARAGRAPHS = [
-  'Mil Ojos es una pieza de arte electrónico en forma de exoesqueleto equipado con nueve cámaras móviles distribuidas alrededor de la cabeza del portador. Cada cámara está montada sobre servomotores que le permiten moverse de forma independiente, girar y seguir objetos visuales. El sistema cuenta con un módulo de inteligencia artificial que compara en tiempo real los rostros detectados en el entorno con una base de datos de personas desaparecidas en México.',
-  'Esta obra parte de una imposibilidad humana: reconocer, retener y cotejar los cientos de rostros de personas desaparecidas que circulan diariamente en afiches, pantallas o redes sociales. La pieza actúa como una metáfora técnica de una memoria extendida, un cuerpo expandido que busca incansablemente entre la multitud. Cada cámara, cada servo, cada conexión de datos, se convierte en un ojo vigilante que no olvida, que insiste.',
-  'El proyecto propone una reflexión sobre el duelo colectivo, la vigilancia afectiva y la carga que implica la memoria social. La obra opera como un gesto poético y político que explora cómo el cuerpo puede ser habitado por la tecnología no como arma, sino como órgano de búsqueda.',
-  'Esta página funciona como extensión digital del proyecto: permite a cualquier persona, desde cualquier lugar, interactuar remotamente con el sistema de reconocimiento facial de Mil Ojos. A través de la cámara de su propio dispositivo, el visitante puede explorar la base de datos y experimentar la misma lógica de búsqueda que opera el exoesqueleto en el espacio físico. La web abre la pieza al territorio de lo remoto, extendiendo sus ojos más allá del cuerpo del portador, multiplicando la mirada colectiva a través de la red.',
+  'Esta página es un paralelo digital del exoesqueleto físico. Mil Ojos es una pieza de arte electrónico: un armazón de nueve cámaras móviles montadas sobre servomotores que el portador lleva alrededor de la cabeza. Cada cámara gira de forma autónoma, rastrea rostros en el entorno y los compara —en tiempo real— contra una base de datos de personas reportadas como desaparecidas en México. Esta plataforma traslada esa misma lógica al espacio remoto: a través de la cámara de tu dispositivo, cualquier persona puede convertirse en portador y activar el mismo sistema de búsqueda.',
+  'La obra parte de una imposibilidad humana: reconocer, retener y cotejar los cientos de rostros de personas desaparecidas que circulan diariamente en afiches, pantallas o redes sociales. Cada cámara, cada servo, cada conexión de datos, se convierte en un ojo que no olvida, que insiste. El proyecto propone una reflexión sobre el duelo colectivo, la vigilancia afectiva y la carga que implica la memoria social —cómo el cuerpo puede ser habitado por la tecnología no como arma, sino como órgano de búsqueda.',
+  'La web extiende los ojos del exoesqueleto más allá del espacio físico. Cada visitante se convierte en portador remoto; cada pantalla, en un nuevo ojo. La mirada colectiva se multiplica a través de la red.',
 ];
 
 const SPECS = [
@@ -150,10 +149,7 @@ export default function HomePage() {
           <div className={styles.footnote}>
             <div className={styles.divider} />
             <p>
-              La pieza opera como un elemento paralelo —un cuerpo protésico que extiende las capacidades
-              de reconocimiento humano hacia los márgenes de la memoria colectiva. Esta plataforma web
-              traslada esa prótesis al espacio digital: cada visitante se convierte en portador remoto,
-              cada pantalla en un nuevo ojo.
+              El sistema opera de forma continua: nuevos boletines son descargados, procesados e indexados automáticamente. La base de datos crece con cada persona reportada, expandiendo el alcance de la búsqueda —en el exoesqueleto físico y en esta plataforma por igual.
             </p>
           </div>
         </div>

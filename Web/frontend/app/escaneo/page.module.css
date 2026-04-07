@@ -197,6 +197,15 @@
   letter-spacing: 0.15em; margin-top: 5px;
   color: rgba(255,255,255,0.9);
 }
+.algoNote {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.22);
+  line-height: 1.7;
+  max-width: 300px;
+  margin-top: 8px;
+}
 .cursor {
   animation: blink 1s step-end infinite;
   color: var(--green);

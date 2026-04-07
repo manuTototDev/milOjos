@@ -471,6 +471,9 @@ export default function Home() {
           <div>
             <p className={styles.tag}>similitud facial / tiempo real</p>
             <h1 className={styles.rightTitle}>COINCIDENCIAS<span className={styles.cursor}>_</span></h1>
+            <p className={styles.algoNote}>
+              Las 8 personas de la base de datos con mayor similitud facial a tu rostro. El sistema captura tu imagen, genera un vector matemático de 512 dimensiones con InsightFace y lo compara contra cada ficha usando similitud coseno.
+            </p>
           </div>
           <div className={styles.dbInfo}>
             <span className={styles.dataLabel}>base de datos</span>
