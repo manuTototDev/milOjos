@@ -153,6 +153,55 @@ function MatchLandmarkOverlay({ active, delay, faceBox }: { active: boolean; del
   );
 }
 
+// ── Tarjeta de coincidencia con estado de carga nativo ──────────────────
+function MatchCardItem({ match, index, scanReveal, api }: { match: Match; index: number; scanReveal: number; api: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const [hash, setHash] = useState('0x000000');
+
+  useEffect(() => {
+    if (loaded) return;
+    const interval = setInterval(() => {
+      setHash('0x' + Math.random().toString(16).substring(2, 8).toUpperCase());
+    }, 60);
+    return () => clearInterval(interval);
+  }, [loaded]);
+
+  const src = match.foto.startsWith('http') ? match.foto : `${api}${match.foto}`;
+
+  return (
+    <Link href={`/ficha/${match.id}`} className={styles.matchCard} id={`match-card-${index}`}>
+      <img
+        src={src}
+        alt={match.name}
+        className={styles.matchImg}
+        onLoad={() => setLoaded(true)}
+        style={{ opacity: loaded ? 1 : 0 }}
+      />
+      
+      {!loaded ? (
+        <div className={styles.calculatingState}>
+          <div className={styles.calcScanLine}></div>
+          <span className={styles.calcTitle}>BUSCANDO_COINCIDENCIA</span>
+          <span className={styles.calcSub}>CALCULANDO...</span>
+          <span className={styles.calcHash}>{hash}</span>
+        </div>
+      ) : (
+        <>
+          <MatchLandmarkOverlay active={scanReveal > 0} delay={index * 150} faceBox={match.match_face_box} key={`scan-${scanReveal}-${index}`} />
+          <div className={styles.matchOverlay}>
+            <span className={styles.matchRank}>{String(index + 1).padStart(2, '0')}</span>
+            <AnimatedScore value={match.score} color={match.score > 60 ? '#00ff88' : match.score > 40 ? '#ffb800' : 'rgba(255,255,255,0.4)'} />
+          </div>
+          <div className={styles.matchLabel}>
+            <span className={styles.matchName}>{match.name}</span>
+            <span className={styles.matchYear}>{match.year}</span>
+          </div>
+        </>
+      )}
+    </Link>
+  );
+}
+
 export default function Home() {
   const videoRef    = useRef<HTMLVideoElement>(null);
   const captureRef  = useRef<HTMLCanvasElement>(null);
@@ -436,21 +485,13 @@ export default function Home() {
                 {!streaming ? 'Inicia el escaneo para ver resultados.' : 'Posicionate frente a la cámara…'}
               </div>
             : matches.slice(0,8).map((m,i) => (
-                <Link key={m.id} href={`/ficha/${m.id}`} className={styles.matchCard} id={`match-card-${i}`}>
-                  <img src={m.foto.startsWith('http') ? m.foto : `${API}${m.foto}`} alt={m.name} className={styles.matchImg}/>
-                  <MatchLandmarkOverlay active={scanReveal > 0} delay={i * 150} faceBox={m.match_face_box} key={`scan-${scanReveal}-${i}`} />
-                  <div className={styles.matchOverlay}>
-                    <span className={styles.matchRank}>{String(i+1).padStart(2,'0')}</span>
-                    <AnimatedScore
-                      value={m.score}
-                      color={m.score>60?'#00ff88':m.score>40?'#ffb800':'rgba(255,255,255,0.4)'}
-                    />
-                  </div>
-                  <div className={styles.matchLabel}>
-                    <span className={styles.matchName}>{m.name}</span>
-                    <span className={styles.matchYear}>{m.year}</span>
-                  </div>
-                </Link>
+                <MatchCardItem 
+                  key={m.id} 
+                  match={m} 
+                  index={i} 
+                  scanReveal={scanReveal} 
+                  api={API} 
+                />
               ))
           }
         </div>
