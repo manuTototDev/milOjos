@@ -19,21 +19,26 @@ STATIC_DIR = os.path.join(DATA_DIR, "static") if os.path.isdir(os.path.join(os.e
 
 # ── Extracción de ZIPs ────────────────────────────────────────────────────────
 def setup_static_from_zips():
+    import zipfile
+    from huggingface_hub import hf_hub_download
     os.makedirs(STATIC_DIR, exist_ok=True)
     fotos_dir = os.path.join(STATIC_DIR, "fotos_recortadas")
     boletines_dir = os.path.join(STATIC_DIR, "boletines_webp")
     
-    fotos_zip = os.path.join(BASE_DIR, "fotos.zip")
-    boletines_zip = os.path.join(BASE_DIR, "boletines.zip")
+    SPACE_ID = "manuTototDev/mil-ojos-api"
     
-    if os.path.exists(fotos_zip) and not os.path.isdir(fotos_dir):
-        print(f"Descomprimiendo {fotos_zip}...")
-        with zipfile.ZipFile(fotos_zip, 'r') as zip_ref:
+    if not os.path.isdir(fotos_dir):
+        print("Descargando fotos.zip...")
+        local_fotos_zip = hf_hub_download(repo_id=SPACE_ID, filename="fotos.zip", repo_type="space")
+        print(f"Descomprimiendo fotos...")
+        with zipfile.ZipFile(local_fotos_zip, 'r') as zip_ref:
             zip_ref.extractall(fotos_dir)
             
-    if os.path.exists(boletines_zip) and not os.path.isdir(boletines_dir):
-        print(f"Descomprimiendo {boletines_zip}...")
-        with zipfile.ZipFile(boletines_zip, 'r') as zip_ref:
+    if not os.path.isdir(boletines_dir):
+        print("Descargando boletines.zip...")
+        local_bols_zip = hf_hub_download(repo_id=SPACE_ID, filename="boletines.zip", repo_type="space")
+        print(f"Descomprimiendo boletines...")
+        with zipfile.ZipFile(local_bols_zip, 'r') as zip_ref:
             zip_ref.extractall(boletines_dir)
 
 # Ejecutar antes de evaluar USE_LOCAL_STATIC
@@ -198,8 +203,24 @@ else:
 
 @app.get("/")
 def health():
+    import traceback
+    debug_info = {
+        "BASE_DIR": BASE_DIR,
+        "DATA_DIR": DATA_DIR,
+        "STATIC_DIR": STATIC_DIR,
+        "base_exists": os.path.exists(BASE_DIR),
+        "fotos_zip_exists": os.path.exists(os.path.join(BASE_DIR, "fotos.zip")),
+        "base_files": os.listdir(BASE_DIR)[:5],
+        "use_local_static": USE_LOCAL_STATIC
+    }
+    
+    fotos_dir = os.path.join(STATIC_DIR, "fotos_recortadas")
+    debug_info["fotos_dir_exists"] = os.path.isdir(fotos_dir)
+    if os.path.isdir(fotos_dir):
+        debug_info["fotos_count"] = len(os.listdir(fotos_dir))
+    
     available = sum(1 for e in database if e.get("has_foto"))
-    return {"status": "ok", "personas": len(database), "con_foto": available}
+    return {"status": "ok", "personas": len(database), "con_foto": available, "debug_info": debug_info}
 
 
 @app.post("/search")
