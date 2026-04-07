@@ -11,6 +11,7 @@ export default function FichaPage({ params }: { params: Promise<{ id: string }> 
   const { id } = use(params);
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showBoletin, setShowBoletin] = useState(false);
 
   useEffect(() => {
     fetch(`${API}/fichas/${id}`)
@@ -65,7 +66,18 @@ export default function FichaPage({ params }: { params: Promise<{ id: string }> 
             <p className={styles.sub}>Descripción física, señas particulares, vestimenta y número de reporte.</p>
           </div>
           <div className={styles.boletinScroll}>
-            <img src={boletinSrc} alt={`Boletín de ${ficha.name}`} className={styles.boletin} />
+            {!showBoletin ? (
+              <div className={styles.boletinDemandWrapper}>
+                <button className={styles.loadBoletinBtn} onClick={() => setShowBoletin(true)}>
+                  CARGAR FICHA ORIGINAL
+                </button>
+                <p className={styles.boletinDemandHint}>
+                  El documento oficial de búsqueda es de alta resolución. Lo cargamos sobre demanda para acelerar la navegación.
+                </p>
+              </div>
+            ) : (
+              <img src={boletinSrc} alt={`Boletín de ${ficha.name}`} className={styles.boletin} />
+            )}
           </div>
         </div>
       </div>

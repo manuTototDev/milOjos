@@ -101,18 +101,9 @@ if USE_LOCAL_STATIC:
     # Local: check disk
     fotos_dir = os.path.join(STATIC_DIR, "fotos_recortadas")
     available_fotos = set(os.listdir(fotos_dir)) if os.path.isdir(fotos_dir) else set()
-else:
-    # CDN: query HF Dataset file list at startup
-    print("Consultando archivos disponibles en HF Dataset...")
-    try:
-        from huggingface_hub import HfApi
-        _api = HfApi()
-        _all_files = _api.list_repo_files("manuTototDev/mil-ojos-images", repo_type="dataset")
-        available_fotos = {os.path.basename(f) for f in _all_files if f.startswith("fotos_recortadas/")}
-        print(f"  Fotos disponibles en CDN: {len(available_fotos)}")
-    except Exception as e:
-        print(f"  Error consultando HF: {e} — asumiendo todas disponibles")
-        available_fotos = None  # None = no filter
+    # CDN: Se omite la consulta de miles de archivos a HF por lentitud.
+    # Asumimos que todas las fotos están disponibles (sobre demanda).
+    available_fotos = None
 
 count_available = 0
 for entry in database:
