@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+insightface
+numpy
+opencv-python
+pillow
+httpx
+pyserial
+onnxruntime
