@@ -23,7 +23,7 @@ SMOOTH_IDLE = 0.03   # factor de suavizado en modo reposo
 
 # ── Posiciones de reposo por brazo [base, hombro, codo, muñeca] ──────────────
 REST_POSITIONS = [
-    [90.0, 60.0, 70.0, 90.0],   # Brazo 1 — ACTIVO (tracking)
+    [90.0, 60.0, 40.0, 90.0],   # Brazo 1 — ACTIVO (tracking) | codo=40° (más abajo)
     [90.0, 60.0, 50.0, 90.0],   # Brazo 2 — reposo
     [90.0, 70.0, 60.0, 90.0],   # Brazo 3 — reposo
     [90.0, 65.0, 55.0, 90.0],   # Brazo 4 — reposo

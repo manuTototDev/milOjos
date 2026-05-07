@@ -3,7 +3,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import styles from './page.module.css';
 
 const API          = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const INTERVAL_MS  = 800;
+const INTERVAL_MS  = 300;   // local → sin latencia de red
 const HISTORY_SIZE = 12;
 const STICKY_THRESH = 6;
 const ZOOM          = 1.28;
@@ -228,9 +228,23 @@ export default function EscaneoPage() {
   // ── Cámara ────────────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
+      // Enumerar cámaras disponibles para elegir la USB externa
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+      // Preferir la última cámara listada (las USB externas suelen aparecer al final)
+      // Si solo hay una, la usamos directamente
+      const preferredDevice = videoDevices.length > 1
+        ? videoDevices[videoDevices.length - 1]   // última = USB externa
+        : videoDevices[0];
+
+      const constraints: MediaStreamConstraints = {
+        video: preferredDevice
+          ? { deviceId: { exact: preferredDevice.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 } },
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
