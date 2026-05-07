@@ -1,0 +1,145 @@
+﻿git : 12:18:34.318041 
+exec-cmd.c:266          
+trace: resolved 
+executable dir: 
+C:/Program 
+Files/Git/mingw64/bin
+En línea: 1 Carácter: 19
++ $env:GIT_TRACE=1; git 
+push origin main 2>&1 | 
+Out-File -FilePath "c:\ 
+...
++                   
+~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (1  
+  2:18:34.318041...Git/   
+ mingw64/bin:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+12:18:34.331430 git.c:502 
+              trace: 
+built-in: git push origin 
+main
+12:18:34.333455 
+run-command.c:674       
+trace: run_command: unset 
+GIT_PREFIX; ssh 
+git@github.com 
+'git-receive-pack '\''manu
+TototDev/milOjos.git'\'''
+12:18:34.333455 
+run-command.c:935       
+trace: start_command: ssh 
+git@github.com 
+'git-receive-pack '\''manu
+TototDev/milOjos.git'\'''
+12:18:35.281501 
+run-command.c:674       
+trace: run_command: git 
+pack-objects 
+--all-progress-implied 
+--revs --stdout --thin 
+--delta-base-offset -q
+12:18:35.281501 
+run-command.c:935       
+trace: start_command: git 
+pack-objects 
+--all-progress-implied 
+--revs --stdout --thin 
+--delta-base-offset -q
+12:18:35.291677 
+exec-cmd.c:266          
+trace: resolved 
+executable dir: 
+C:/Program Files/Git/mingw
+64/libexec/git-core
+12:18:35.301300 git.c:502 
+              trace: 
+built-in: git 
+pack-objects 
+--all-progress-implied 
+--revs --stdout --thin 
+--delta-base-offset -q
+remote: error: GH013: 
+Repository rule 
+violations found for 
+refs/heads/main.        
+remote: 
+remote: - GITHUB PUSH 
+PROTECTION        
+remote:   ÔÇöÔÇöÔÇöÔÇöÔÇöÔ
+ÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇö
+ÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇ
+öÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔ
+ÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇö
+ÔÇö        
+remote:     Resolve the 
+following violations 
+before pushing again      
+  
+remote: 
+remote:     - Push cannot 
+contain secrets        
+remote: 
+remote:             
+remote:      (?) Learn 
+how to resolve a blocked 
+push        
+remote:      https://docs.
+github.com/code-security/s
+ecret-scanning/working-wit
+h-secret-scanning-and-push
+-protection/working-with-p
+ush-protection-from-the-co
+mmand-line#resolving-a-blo
+cked-push        
+remote:             
+remote:             
+remote:       ÔÇöÔÇö 
+Hugging Face User Access 
+Token ÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇ
+öÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔ
+ÇöÔÇöÔÇöÔÇöÔÇö        
+remote:        locations: 
+       
+remote:          - 
+commit: bf63997bdd5056cc5a
+248441f510bf316d40049c    
+    
+remote:            path: 
+Web/_upload_all.py:10     
+   
+remote:          - 
+commit: bf63997bdd5056cc5a
+248441f510bf316d40049c    
+    
+remote:            path: 
+Web/_upload_now.py:6      
+  
+remote:             
+remote:        (?) To 
+push, remove secret from 
+commit(s) or follow this 
+URL to allow the secret.  
+      
+remote:        https://git
+hub.com/manuTototDev/milOj
+os/security/secret-scannin
+g/unblock-secret/3BzkdLGfi
+1rVYghcAwD0Zi9CgGL        
+remote:             
+remote: 
+remote: 
+To github.com:manuTototDev
+/milOjos.git
+ ! [remote rejected] main 
+-> main (push declined 
+due to repository rule 
+violations)
+error: failed to push 
+some refs to 'github.com:m
+anuTototDev/milOjos.git'
