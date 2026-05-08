@@ -134,7 +134,7 @@ function MatchCardItem({ match, index, scanReveal }: { match: Match; index: numb
   return (
     <div className={styles.matchCard} id={`match-card-${index}`}>
       <img src={src} alt={match.name} className={styles.matchImg}
-        onLoad={() => setLoaded(true)} style={{ opacity: loaded ? 1 : 0 }} />
+        onLoad={() => setLoaded(true)} onError={() => setLoaded(true)} style={{ opacity: loaded ? 1 : 0 }} />
       {!loaded ? (
         <div className={styles.calculatingState}>
           <div className={styles.calcScanLine}/>
@@ -265,7 +265,8 @@ export default function EscaneoPage() {
 
     cvs.toBlob(async (blob) => {
       if (!blob) return;
-      setStatus('analyzing');
+      // Solo mostrar 'analyzing' si ya teníamos un rostro activo (evita parpadeo sin rostro)
+      setStatus(prev => (prev === 'scanning' || prev === 'analyzing') ? 'analyzing' : prev);
       try {
         const fd = new FormData();
         fd.append('file', blob, 'f.jpg');
@@ -363,8 +364,14 @@ export default function EscaneoPage() {
             transform: (faceBox && streaming) ? `scale(${ZOOM})` : 'scale(1)',
             transition: 'transform 0.7s ease, transform-origin 0.7s ease',
           }}>
+          {/* Inner div: rota video + SVG juntos para que el overlay siempre quede encima del rostro */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            transform: 'rotate(-90deg)',
+            transformOrigin: '50% 50%',
+          }}>
           <video ref={videoRef} autoPlay muted playsInline className={styles.video}
-            style={{ display: streaming ? 'block' : 'none', transform: 'scaleX(-1)' }}/>
+            style={{ display: streaming ? 'block' : 'none' }}/>
 
           {streaming && vw > 0 && (
             <svg className={styles.svgOverlay} viewBox={`0 0 ${cw} ${ch}`} preserveAspectRatio="none">
@@ -399,6 +406,7 @@ export default function EscaneoPage() {
               })}
             </svg>
           )}
+          </div>{/* /inner rotation div */}
         </div>
 
         {/* Idle */}

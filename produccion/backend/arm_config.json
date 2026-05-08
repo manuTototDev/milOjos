@@ -1,0 +1,69 @@
+{
+  "servos_por_brazo": 4,
+  "servo_labels": ["Base", "Hombro", "Codo", "Muñeca"],
+  "arms": [
+    {
+      "id": 0,
+      "label": "A",
+      "active": true,
+      "home": [90, 90, 90, 45],
+      "notes": "Brazo principal de tracking. home = posición inicial de exploración."
+    },
+    {
+      "id": 1,
+      "label": "B",
+      "active": false,
+      "home": [90, 60, 50, 90],
+      "notes": ""
+    },
+    {
+      "id": 2,
+      "label": "C",
+      "active": false,
+      "home": [90, 70, 60, 90],
+      "notes": ""
+    },
+    {
+      "id": 3,
+      "label": "D",
+      "active": false,
+      "home": [90, 65, 55, 90],
+      "notes": ""
+    },
+    {
+      "id": 4,
+      "label": "E",
+      "active": false,
+      "home": [90, 60, 50, 90],
+      "notes": ""
+    },
+    {
+      "id": 5,
+      "label": "F",
+      "active": false,
+      "home": [90, 70, 60, 90],
+      "notes": ""
+    },
+    {
+      "id": 6,
+      "label": "G",
+      "active": false,
+      "home": [90, 65, 55, 90],
+      "notes": ""
+    },
+    {
+      "id": 7,
+      "label": "H",
+      "active": false,
+      "home": [90, 60, 50, 90],
+      "notes": ""
+    },
+    {
+      "id": 8,
+      "label": "I",
+      "active": false,
+      "home": [90, 70, 60, 90],
+      "notes": ""
+    }
+  ]
+}

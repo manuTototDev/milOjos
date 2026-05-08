@@ -31,9 +31,8 @@ from brain_trainer import BrainTrainer
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE  = os.path.join(BASE_DIR, "face_database.pkl")
 
-# ── CDN (HuggingFace Dataset) ─────────────────────────────────────────────────
-HF_CDN_BASE = "https://huggingface.co/datasets/manuTototDev/mil-ojos-images/resolve/main"
-_img_cache: dict[str, bytes] = {}
+# ── Imágenes locales ──────────────────────────────────────────────────────────
+# Se leerán localmente desde la carpeta fcaesDes
 
 # ── FastAPI ───────────────────────────────────────────────────────────────────
 app = FastAPI(title="Mil Ojos API v3", version="3.0")
@@ -92,6 +91,11 @@ class FaceBoxPayload(BaseModel):
     h: float       # height
     img_w: int     # tamaño real del frame (px)  — para calcular distancia
     img_h: int
+
+class ServoOverridePayload(BaseModel):
+    arm_index: int
+    servo_index: int
+    angle: float
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ENDPOINTS
@@ -227,6 +231,17 @@ def servo_reset_brain():
     return {"ok": True, "brain": brain.get_state()}
 
 
+@app.post("/servo/test/override")
+def servo_test_override(payload: ServoOverridePayload):
+    servo.set_target_override(payload.arm_index, payload.servo_index, payload.angle)
+    return {"ok": True}
+
+@app.post("/servo/test/all")
+def servo_test_all(angle: float):
+    servo.set_all_servos(angle)
+    return {"ok": True}
+
+
 # ── Fichas ────────────────────────────────────────────────────────────────────
 @app.get("/fichas")
 def list_fichas(page: int = 1, limit: int = 48, year: str = None, q: str = None):
@@ -254,28 +269,32 @@ def get_years():
     return {"years": sorted(set(p["year"] for p in database))}
 
 
-# ── Proxy de imágenes (CDN HuggingFace) ──────────────────────────────────────
+from fastapi.responses import FileResponse
+
+# ── Servir imágenes locales ──────────────────────────────────────────────────
 @app.get("/img/{folder}/{filename}")
-async def img_proxy(folder: str, filename: str):
+async def get_local_image(folder: str, filename: str):
     if folder not in ("fotos_recortadas", "boletines_webp"):
         raise HTTPException(404, "Carpeta desconocida")
-    key = f"{folder}/{filename}"
-    if key in _img_cache:
-        data = _img_cache[key]
-    else:
-        cdn_url = f"{HF_CDN_BASE}/{folder}/{filename}"
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                r = await client.get(cdn_url)
-            if r.status_code != 200:
-                raise HTTPException(r.status_code, "Imagen no encontrada en CDN")
-            data = r.content
-            if folder == "fotos_recortadas":
-                _img_cache[key] = data
-        except httpx.TimeoutException:
-            raise HTTPException(504, "Timeout al obtener imagen")
+    
+    try:
+        year = filename[:4]
+    except:
+        raise HTTPException(400, "Nombre de archivo inválido")
 
-    ext   = filename.rsplit(".", 1)[-1].lower()
-    ctype = {"jpg":"image/jpeg","jpeg":"image/jpeg","webp":"image/webp","png":"image/png"}.get(ext,"image/jpeg")
-    return Response(content=data, media_type=ctype,
-                    headers={"Cache-Control": "public, max-age=604800"})
+    base_dir = os.path.join(BASE_DIR, "fcaesDes", year)
+    
+    if folder == "fotos_recortadas":
+        # De "2020_foto_NOMBRE.jpg" a "foto_NOMBRE.jpg"
+        actual_filename = filename[5:]
+        file_path = os.path.join(base_dir, "fotos_recortadas", actual_filename)
+    else:
+        # folder == "boletines_webp"
+        # De "2020_NOMBRE.webp" a "NOMBRE.jpg"
+        actual_filename = filename[5:-5] + ".jpg"
+        file_path = os.path.join(base_dir, "boletines_completos", actual_filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(404, "Imagen no encontrada localmente")
+        
+    return FileResponse(file_path)
