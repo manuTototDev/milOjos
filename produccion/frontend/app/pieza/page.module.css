@@ -1,0 +1,186 @@
+/* ── Pieza / Dossier ── */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  padding: 4rem 2rem;
+  box-sizing: border-box;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 3rem;
+  max-width: 800px;
+  animation: fadeIn 0.5s ease;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin: 0;
+  margin-bottom: 0.5rem;
+  animation: flicker 6s infinite;
+}
+
+.title::after {
+  content: '_';
+  color: var(--accent);
+  animation: blink 1s step-end infinite;
+}
+
+.subtitle {
+  color: var(--text2);
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+
+.introText {
+  color: var(--text2);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  letter-spacing: 0.05em;
+  text-align: justify;
+}
+
+.contentContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  max-width: 1000px;
+  width: 100%;
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: fadeInSection 0.8s ease forwards;
+}
+
+@keyframes fadeInSection {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.section:nth-child(1) { animation-delay: 0.1s; }
+.section:nth-child(2) { animation-delay: 0.3s; }
+.section:nth-child(3) { animation-delay: 0.5s; }
+.section:nth-child(4) { animation-delay: 0.7s; }
+.section:nth-child(5) { animation-delay: 0.9s; }
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+  margin: 0;
+}
+
+.textBlock {
+  font-size: 0.95rem;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ── Bibliografía & Estado del Arte ── */
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.itemCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1.25rem;
+  border-left: 2px solid var(--accent);
+  border-radius: 2px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.itemCard:hover {
+  background: rgba(255, 45, 45, 0.05);
+  transform: translateX(4px);
+}
+
+.itemAuthor {
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.itemTitle {
+  font-size: 1.15rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.itemDesc {
+  font-size: 0.9rem;
+  color: var(--text2);
+  line-height: 1.5;
+  margin-top: 0.25rem;
+  white-space: pre-line;
+}
+
+/* ── Tablas ── */
+.tableContainer {
+  overflow-x: auto;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.dataTable th, .dataTable td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.dataTable th {
+  color: var(--green);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: rgba(0, 255, 136, 0.05);
+}
+
+.dataTable td {
+  color: var(--text2);
+}
+
+.dataTable tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .root {
+    padding: 2rem 1rem;
+  }
+}

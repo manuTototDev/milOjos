@@ -4,7 +4,6 @@ Backend FastAPI:
   - /search          → recibe frame del frontend, retorna matches + face_box
   - /servo/track     → recibe face_box normalizado, actualiza targets de servos
   - /servo/status    → estado actual de los 9 brazos
-  - /servo/reset     → resetea cerebro de seguimiento
   - /fichas          → lista paginada de fichas
   - /fichas/{id}     → ficha individual
   - /years           → años disponibles
@@ -25,7 +24,6 @@ import httpx
 from insightface.app import FaceAnalysis
 
 from servo_controller import ServoController
-from brain_trainer import BrainTrainer
 
 # ── Rutas ─────────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -76,11 +74,9 @@ face_app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
 face_app.prepare(ctx_id=0, det_size=(640, 640))
 print("[AI] Modelo listo.")
 
-# ── Servo controller + Brain ──────────────────────────────────────────────────
+# ── Servo controller ─────────────────────────────────────────────────────────
 servo = ServoController()
 servo.start()
-
-brain = BrainTrainer()
 
 # ── Modelos Pydantic ──────────────────────────────────────────────────────────
 class FaceBoxPayload(BaseModel):
@@ -173,41 +169,29 @@ async def search_face(file: UploadFile = File(...)):
 @app.post("/servo/track")
 async def servo_track(payload: FaceBoxPayload):
     """
-    Recibe la posición del rostro (normalizada 0-1) desde el frontend.
-    Calcula error respecto al centro y actualiza el brazo 1.
+    Recibe la posición del rostro. Si está a un 50% de cercanía del centro de la imagen,
+    detiene el brazo. Si no, lo ignora (como si no hubiera rostro).
     """
-    cx_norm = payload.x + payload.w / 2   # centro horizontal (0-1)
-    cy_norm = payload.y + payload.h / 2   # centro vertical   (0-1)
+    cx_norm = payload.x + payload.w / 2
+    cy_norm = payload.y + payload.h / 2
 
-    # Error respecto al centro: positivo = rostro a la derecha / abajo del centro
-    err_x = cx_norm - 0.5    # rango -0.5 .. +0.5
-    err_y = cy_norm - 0.5
+    # Distancia al centro en coordenadas normalizadas (0 a 1)
+    # Centro = 0.5. El 50% de cercanía significa estar a menos de 0.25 de distancia del centro.
+    dist_centro = np.sqrt((cx_norm - 0.5)**2 + (cy_norm - 0.5)**2)
 
-    # Normalizar a -1..1
-    error_input = np.array([err_x * 2, err_y * 2])
-
-    # Distancia en píxeles al centro (para reward del brain)
-    cx_px = (cx_norm - 0.5) * payload.img_w
-    cy_px = (cy_norm - 0.5) * payload.img_h
-    dist  = float(np.sqrt(cx_px**2 + cy_px**2))
-
-    step_v, step_h, status = brain.update(error_input, dist, time.time())
-
-    # Aplicar movimiento al Brazo 1 (índice 0)
-    # target[base] += step_h  →  yaw (giro horizontal)
-    # target[codo] += step_v  →  tilt (inclinación vertical)
-    current = servo.get_status()["targets"][0]
-    new_base = current[0] + step_h
-    new_codo = current[2] + step_v
-    servo.set_target(0, [new_base, current[1], new_codo, current[3]])
-    servo.set_face_detected(True)
+    if dist_centro <= 0.25:
+        servo.set_face_detected(True)
+        status = "PAUSED (CENTER)"
+    else:
+        servo.set_face_detected(False)
+        status = "IGNORED (OFF-CENTER)"
 
     return {
         "status":  status,
-        "step_v":  round(step_v, 2),
-        "step_h":  round(step_h, 2),
-        "dist_px": round(dist, 1),
-        "brain":   brain.get_state(),
+        "step_v":  0.0,
+        "step_h":  0.0,
+        "dist_px": float(dist_centro * payload.img_w),
+        "brain":   {},
     }
 
 
@@ -224,11 +208,6 @@ def servo_status():
     return servo.get_status()
 
 
-@app.post("/servo/reset-brain")
-def servo_reset_brain():
-    """Resetea los pesos del cerebro de seguimiento."""
-    brain.reset_pesos()
-    return {"ok": True, "brain": brain.get_state()}
 
 
 @app.post("/servo/test/override")

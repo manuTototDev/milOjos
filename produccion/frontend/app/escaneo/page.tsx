@@ -179,6 +179,7 @@ export default function EscaneoPage() {
   const [scanReveal, setScanReveal] = useState(0);
   const [dbCount, setDbCount]       = useState<number | null>(null);
   const [servoStatus, setServoStatus] = useState<ServoStatus | null>(null);
+  const [useUsbCamera, setUseUsbCamera] = useState(true);
 
   // ── DB count ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -228,15 +229,17 @@ export default function EscaneoPage() {
   // ── Cámara ────────────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     try {
-      // Enumerar cámaras disponibles para elegir la USB externa
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(d => d.kind === 'videoinput');
 
-      // Preferir la última cámara listada (las USB externas suelen aparecer al final)
-      // Si solo hay una, la usamos directamente
-      const preferredDevice = videoDevices.length > 1
-        ? videoDevices[videoDevices.length - 1]   // última = USB externa
-        : videoDevices[0];
+      let preferredDevice;
+      if (useUsbCamera) {
+        preferredDevice = videoDevices.find(d => d.label.toLowerCase().includes('usb'));
+        if (!preferredDevice) preferredDevice = videoDevices.length > 1 ? videoDevices[videoDevices.length - 1] : videoDevices[0];
+      } else {
+        preferredDevice = videoDevices.find(d => !d.label.toLowerCase().includes('usb'));
+        if (!preferredDevice) preferredDevice = videoDevices[0];
+      }
 
       const constraints: MediaStreamConstraints = {
         video: preferredDevice
@@ -246,13 +249,29 @@ export default function EscaneoPage() {
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
+        // Detener streams anteriores para liberar la cámara
+        const currentStream = videoRef.current.srcObject as MediaStream;
+        if (currentStream) {
+          currentStream.getTracks().forEach(t => t.stop());
+        }
         videoRef.current.srcObject = stream;
         videoRef.current.play();
         setStreaming(true);
         setStatus('scanning');
       }
     } catch { setStatus('error'); }
-  }, []);
+  }, [useUsbCamera]);
+
+  const toggleCamera = () => {
+    setUseUsbCamera(prev => !prev);
+  };
+
+  useEffect(() => {
+    if (streaming) {
+      startCamera();
+    }
+  }, [useUsbCamera, startCamera]);
+
 
   // ── Análisis de frame ─────────────────────────────────────────────────────
   const analyzeFrame = useCallback(async () => {
@@ -277,7 +296,9 @@ export default function EscaneoPage() {
           setFaceBox(null);
           setLm106([]);
           // Notificar al backend que no hay rostro
-          fetch(`${API}/servo/no-face`, { method: 'POST' }).catch(() => {});
+          if (useUsbCamera) {
+            fetch(`${API}/servo/no-face`, { method: 'POST' }).catch(() => {});
+          }
           return;
         }
         if (!res.ok) { setStatus('error'); return; }
@@ -287,8 +308,8 @@ export default function EscaneoPage() {
         setFaceBox(data.face_box ?? null);
         setLm106(data.lm106 ?? []);
 
-        // ── Enviar face_box a los servos ──────────────────────────────────
-        if (data.face_box) {
+        // ── Enviar face_box a los servos (SOLO SI ES USB) ──────────────────
+        if (data.face_box && useUsbCamera) {
           fetch(`${API}/servo/track`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -298,6 +319,9 @@ export default function EscaneoPage() {
               img_h: cvs.height,
             }),
           }).catch(() => {});
+        } else if (!useUsbCamera) {
+          // Si estamos usando la integrada, el robot no debe seguir ese rostro
+          fetch(`${API}/servo/no-face`, { method: 'POST' }).catch(() => {});
         }
 
         // ── Sticky logic ──────────────────────────────────────────────────
@@ -367,7 +391,7 @@ export default function EscaneoPage() {
           {/* Inner div: rota video + SVG juntos para que el overlay siempre quede encima del rostro */}
           <div style={{
             position: 'absolute', inset: 0,
-            transform: 'rotate(-90deg)',
+            transform: useUsbCamera ? 'rotate(-90deg)' : 'rotate(90deg)',
             transformOrigin: '50% 50%',
           }}>
           <video ref={videoRef} autoPlay muted playsInline className={styles.video}
@@ -417,7 +441,13 @@ export default function EscaneoPage() {
             <button className={styles.startBtn} onClick={startCamera} id="btn-iniciar-escaneo">
               INICIAR ESCANEO
             </button>
-            <p className={styles.idleSub}>Se solicitará acceso a la cámara.<br/>Ninguna imagen se almacena.</p>
+            <button 
+              onClick={toggleCamera}
+              style={{ pointerEvents: 'auto', marginTop: '1rem', padding: '8px 12px', background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.1em', zIndex: 10 }}
+            >
+              CÁMARA: {useUsbCamera ? 'USB' : 'DISPOSITIVO'} (CAMBIAR)
+            </button>
+            <p className={styles.idleSub} style={{ marginTop: '1rem' }}>Se solicitará acceso a la cámara.<br/>Ninguna imagen se almacena.</p>
           </div>
         )}
 
@@ -457,6 +487,14 @@ export default function EscaneoPage() {
                 </>
               )}
               <span style={{ color:'rgba(255,255,255,0.15)' }}>BRAZO 1 / {servoStatus?.active_arms.length ?? 1} ACTIVO(S)</span>
+
+              <button 
+                onClick={toggleCamera}
+                style={{ pointerEvents: 'auto', marginTop: '10px', padding: '6px 10px', background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.1em' }}
+              >
+                CÁMARA: {useUsbCamera ? 'USB' : 'DISPOSITIVO'} (CAMBIAR)
+              </button>
+
             </div>
           </div>
         )}

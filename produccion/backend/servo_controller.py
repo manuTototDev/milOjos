@@ -19,6 +19,7 @@ import numpy as np
 import time
 import os
 import json
+import math
 
 # ── Configuración global ──────────────────────────────────────────────────────
 NUM_BRAZOS       = 9
@@ -27,8 +28,8 @@ TOTAL_SERVOS     = NUM_BRAZOS * SERVOS_POR_BRAZO   # 36
 
 COM_PORT    = os.environ.get("ARDUINO_PORT", "COM6")
 BAUD_RATE   = 115200
-SMOOTH_FACE = 0.14   # suavizado con rostro: más bajo = más fluido y sin vibraciones
-SMOOTH_IDLE = 0.05  # suavizado en reposo/búsqueda
+SMOOTH_FACE = 0.65   # suavizado con rostro: incrementado para centrar el rostro casi instantáneamente
+SMOOTH_IDLE = 0.20   # suavizado en búsqueda: incrementado para movimientos rápidos ("animal")
 
 # ── Parámetros de barrido (modo búsqueda) ────────────────────────────────────
 # La cámara se renderiza espejada (scaleX(-1)):
@@ -82,6 +83,15 @@ class ServoController:
         self._scan_dir = 1    # +1 → moviéndose hacia SCAN_LIMIT (izquierda visual)
         self._scan_pos = REST_POSITIONS[0][0]  # arranca desde el home de la base
 
+        self.last_face_time = 0.0
+        self.last_velocities = [[0.0]*SERVOS_POR_BRAZO for _ in range(NUM_BRAZOS)]
+        self.time_start = time.time()
+        
+        # Estado para movimiento orgánico (sacádico)
+        self.next_saccade_time = 0.0
+        self.saccade_target_base = SCAN_HOME
+        self.saccade_target_codo = REST_POSITIONS[0][2] if len(REST_POSITIONS) > 0 else 90.0
+
         self._connect()
 
     # ── Conexión ──────────────────────────────────────────────────────────────
@@ -105,7 +115,11 @@ class ServoController:
             return   # brazo no activo, ignorar
         with self._lock:
             for i, v in enumerate(servos[:SERVOS_POR_BRAZO]):
-                self.target[arm_index][i] = float(np.clip(v, 0, 180))
+                v_clipped = float(np.clip(v, 0, 180))
+                # Suavizar la inercia para saber en qué dirección se movía
+                delta = v_clipped - self.target[arm_index][i]
+                self.last_velocities[arm_index][i] = self.last_velocities[arm_index][i] * 0.7 + delta * 0.3
+                self.target[arm_index][i] = v_clipped
 
     def set_target_override(self, arm_index: int, servo_index: int, angle: float):
         """Fuerza un servo específico (bypass ACTIVE_ARMS). angle 0-180."""
@@ -120,7 +134,18 @@ class ServoController:
                     self.target[arm][s] = float(np.clip(angle, 0, 180))
 
     def set_face_detected(self, detected: bool):
-        self.face_detected = detected
+        with self._lock:
+            # Si pasamos de no detectar a detectar, detenemos el brazo en su posición física actual
+            if detected and not self.face_detected:
+                for s in range(SERVOS_POR_BRAZO):
+                    self.target[0][s] = self.pos[0][s]
+                    self.last_velocities[0][s] = 0.0
+                self.saccade_target_base = self.pos[0][0]
+                self.saccade_target_codo = self.pos[0][2]
+
+            if detected:
+                self.last_face_time = time.time()
+            self.face_detected = detected
 
     def get_status(self) -> dict:
         """Retorna estado actual para el endpoint /servo/status"""
@@ -149,27 +174,47 @@ class ServoController:
     def _loop(self):
         """Suaviza posiciones y envía a Arduino a ~30 Hz."""
         while self._running:
-            alpha = SMOOTH_FACE if self.face_detected else SMOOTH_IDLE
-
+            now = time.time()
+            
             with self._lock:
-                # ── Modo búsqueda: barrido suave de la base del Brazo 0 ──────
-                if not self.face_detected:
-                    self._scan_pos += SCAN_STEP_DEG * self._scan_dir
-
-                    if self._scan_pos >= SCAN_LIMIT:
-                        self._scan_pos = SCAN_LIMIT
-                        self._scan_dir = -1   # revertir → volver al home
-                    elif self._scan_pos <= SCAN_HOME:
-                        self._scan_pos = SCAN_HOME
-                        self._scan_dir = 1    # revertir → ir hacia SCAN_LIMIT
-
-                    # Actualizar el target de la base (servo 0) del Brazo 0
-                    self.target[0][0] = self._scan_pos
-
+                time_since_face = now - self.last_face_time
+                if self.face_detected:
+                    alpha = SMOOTH_FACE
                 else:
-                    # Al detectar rostro, sincronizar la posición interna del barrido
-                    # con el target actual (para no hacer salto brusco al perder el rostro)
-                    self._scan_pos = self.target[0][0]
+                    if time_since_face < 3.0:
+                        alpha = SMOOTH_FACE * 0.5  # Movimiento rápido pero un poco más suave al perder rostro
+                    else:
+                        alpha = SMOOTH_IDLE
+
+                # ── Modo búsqueda: movimientos orgánicos del Brazo 0 ──────
+                if not self.face_detected:
+                    if time_since_face >= 3.0:
+                        # Modo exploración orgánica ("animal buscando")
+                        # Movimientos rápidos, sacádicos, con pausas cortas
+                        if now > self.next_saccade_time:
+                            import random
+                            nuevo_base = self.saccade_target_base + random.uniform(-40, 40)
+                            nuevo_codo = REST_POSITIONS[0][2] + random.uniform(-25, 25)
+                            
+                            # Mantener dentro de rangos razonables
+                            self.saccade_target_base = float(np.clip(nuevo_base, 30, 150))
+                            self.saccade_target_codo = float(np.clip(nuevo_codo, 40, 140))
+                            
+                            # Siguiente movimiento en un tiempo corto y aleatorio (0.2 a 0.8s)
+                            self.next_saccade_time = now + random.uniform(0.2, 0.8)
+                            
+                        self.target[0][0] = self.saccade_target_base
+                        self.target[0][2] = self.saccade_target_codo
+                    else:
+                        # Han pasado menos de 3 segundos desde la última vez que vimos un rostro
+                        # Moverse rápidamente hacia la última dirección donde se vio al rostro (inercia amplificada)
+                        self.target[0][0] += self.last_velocities[0][0] * 4.0
+                        self.target[0][2] += self.last_velocities[0][2] * 4.0
+                        self.target[0][0] = float(np.clip(self.target[0][0], 0, 180))
+                        self.target[0][2] = float(np.clip(self.target[0][2], 0, 180))
+                else:
+                    # Rastreo activo (target gestionado externamente por set_target)
+                    pass
 
                 # ── Suavizado para todos los servos ──────────────────────────
                 for arm in range(NUM_BRAZOS):

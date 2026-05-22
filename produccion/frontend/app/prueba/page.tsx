@@ -89,6 +89,7 @@ export default function PruebaServos() {
     }
   };
 
+
   return (
     <div className="p-8 min-h-screen bg-neutral-900 text-white font-sans">
       <h1 className="text-3xl font-bold mb-6 text-center text-blue-400">Prueba de Servos</h1>
@@ -113,7 +114,7 @@ export default function PruebaServos() {
       )}
 
       {/* Botones globales */}
-      <div className="flex justify-center gap-4 mb-8">
+      <div className="flex justify-center flex-wrap gap-4 mb-8">
         <button
           onClick={() => setAll(0)}
           className="bg-red-600 hover:bg-red-500 px-6 py-2 rounded-full font-semibold transition"
